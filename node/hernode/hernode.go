@@ -2,8 +2,11 @@ package hernode
 
 import (
 	l "log"
+	"net"
+	"net/rpc/jsonrpc"
 	"time"
 	"zeus/node/noderror"
+	"zeus/node/rpcobjc"
 	"zeus/utils/global"
 
 	"context"
@@ -40,6 +43,9 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/block/:chain", getBlockByHeightOrHash)
 	router.GET("/blockHash/:chain/:height", getBlockHashByHeight)
 	router.GET("/blockHeight/:chain", getBlockHeight)
+
+	router.GET("/account/transaction/count/:chain/:hash", getTransactionCountInBlock)
+	router.GET("/sendRawTransaction/:chain/:data", sendRawTransaction)
 }
 
 func getChainAvailable(c *gin.Context) {
@@ -357,5 +363,68 @@ func getBlockHeight(c *gin.Context) {
 
 	case global.QTUM:
 		// TODO
+	}
+}
+
+func getTransactionCountInBlock(c *gin.Context) {
+	chain := strings.ToLower(c.Param("chain"))
+	hash := c.Param("hash")
+
+	switch chain {
+	case global.BTC:
+		// TODO
+	case global.ETH:
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		client, err := ethclient.Dial(ethHost)
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+		count, err := client.TransactionCount(ctx, common.HexToHash(hash))
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+		c.JSON(200, gin.H{
+			"result": "success",
+			"content": gin.H{
+				"count": count,
+			},
+		})
+	case global.QTUM:
+		// TODO
+	}
+}
+
+func sendRawTransaction(c *gin.Context) {
+	chain := strings.ToLower(c.Param("chain"))
+	data := c.Param("data")
+
+	switch chain {
+	case global.BTC:
+		// TODO
+	case global.ETH:
+		client, err := net.DialTimeout("tcp", "106.14.187.240:8545", 10*time.Second)
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		clientRPC := jsonrpc.NewClient(client)
+		var resp rpcobjc.ETHResp
+		err = clientRPC.Call("eth_sendRawTransaction", data, &resp)
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": resp,
+		})
+
+	case global.QTUM:
+		// TODO:
 	}
 }
