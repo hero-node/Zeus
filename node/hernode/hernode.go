@@ -412,6 +412,7 @@ func sendRawTransaction(c *gin.Context) {
 		}
 
 		clientRPC := jsonrpc.NewClient(client)
+
 		var resp rpcobjc.ETHResp
 		err = clientRPC.Call("eth_sendRawTransaction", data, &resp)
 		if err != nil {
@@ -425,6 +426,6 @@ func sendRawTransaction(c *gin.Context) {
 		})
 
 	case global.QTUM:
-		// TODO:
+
 	}
 }

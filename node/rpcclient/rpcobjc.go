@@ -1,4 +1,4 @@
-package rpcobjc
+package rpcclient
 
 type ETHResp struct {
 	ID      int    `json:"id"`

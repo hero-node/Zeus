@@ -11,7 +11,7 @@ import (
 
 func main() {
 	testnet := flag.Bool("testnet", false, "is testnet")
-	pconfig := flag.String("config", "./node.cfg", "config file")
+	pconfig := flag.String("config", "./heronode.conf", "config file")
 	flag.Parse()
 
 	var psection string
