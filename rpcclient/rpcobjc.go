@@ -1,7 +1,7 @@
 package rpcclient
 
 type ETHResp struct {
-	ID      int    `json:"id"`
+	ID      string `json:"id"`
 	JSONPRC string `json:"jsonrpc"`
 	Result  string `json:"result"`
 }

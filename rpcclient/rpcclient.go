@@ -3,12 +3,11 @@ package rpcclient
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 )
 
-func Call_ETH(host string, method string, params []interface{}) (interface{}, error) {
+func Call_ETH(host string, method string, params []interface{}) (*ETHResp, error) {
 	data := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      "go-heronode",
@@ -34,10 +33,16 @@ func Call_ETH(host string, method string, params []interface{}) (interface{}, er
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response body", string(body))
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
-	return body, nil
+	respObjc := new(ETHResp)
+	err = json.Unmarshal(body, &respObjc)
+	if err != nil {
+		return nil, err
+	}
+
+	return respObjc, nil
 }
