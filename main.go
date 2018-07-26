@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	l "log"
-	"zeus/node/hernode"
+	"zeus/api/heronode"
 
 	"github.com/Mercy-Li/Goconfig/config"
 	"github.com/gin-gonic/gin"
@@ -40,7 +40,7 @@ func main() {
 	gin.SetMode(gin.DebugMode)
 	router := gin.Default()
 
-	hernode.InitRoute(router)
+	heronode.InitRoute(router)
 
 	router.Run(port)
 }

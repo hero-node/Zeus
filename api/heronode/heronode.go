@@ -1,12 +1,9 @@
-package hernode
+package heronode
 
 import (
 	l "log"
-	"net"
-	"net/rpc/jsonrpc"
 	"time"
-	"zeus/node/noderror"
-	"zeus/node/rpcobjc"
+	"zeus/api/noderror"
 	"zeus/utils/global"
 
 	"context"
@@ -26,10 +23,10 @@ import (
 var ethHost string
 
 func InitRoute(router *gin.Engine) {
-	ethHostLocal, err := config.GetConfigString("ethnode")
+	ethHostLocal, err := config.GetConfigString("ethhost")
 	ethHost = ethHostLocal
 	if err != nil {
-		l.Fatalln("get ethnode error")
+		l.Fatalln("get ethhost error")
 	}
 
 	router.GET("/available/:chain", getChainAvailable)
@@ -405,16 +402,7 @@ func sendRawTransaction(c *gin.Context) {
 	case global.BTC:
 		// TODO
 	case global.ETH:
-		client, err := net.DialTimeout("tcp", "106.14.187.240:8545", 10*time.Second)
-		if err != nil {
-			noderror.Error(err, c)
-			return
-		}
-
-		clientRPC := jsonrpc.NewClient(client)
-
-		var resp rpcobjc.ETHResp
-		err = clientRPC.Call("eth_sendRawTransaction", data, &resp)
+		resp, err := Call_ETH("eth_sendRawTransaction", []interface{}{data})
 		if err != nil {
 			noderror.Error(err, c)
 			return
