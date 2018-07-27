@@ -2,8 +2,8 @@ package discover
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
-	"log"
 	"os"
 	"sync"
 	"time"
@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -42,6 +43,7 @@ func newNodeDB(path string, version int, self NodeID) (*nodeDB, error) {
 	if path == "" {
 		return newMemoryNodeDB(self)
 	}
+	return newPersistentNodeDB(path, version, self)
 }
 
 func newMemoryNodeDB(self NodeID) (*nodeDB, error) {
@@ -93,7 +95,7 @@ func newPersistentNodeDB(path string, version int, self NodeID) (*nodeDB, error)
 // makeKey generates the leveldb key-blob from a node id and its particular
 // field of interest.
 func makeKey(id NodeID, field string) []byte {
-	if bytes.Equal(id, nodeDBNilNodeID) {
+	if bytes.Equal(id[:], nodeDBNilNodeID[:]) {
 		return []byte(field)
 	}
 	return append(nodeDBItemPrefix, append(id[:], field...)...)
@@ -154,7 +156,7 @@ func (db *nodeDB) updateNode(node *Node) error {
 }
 
 func (db *nodeDB) deleteNode(id NodeID) error {
-	deleter, err := db.lvl.NewIterator(util.BytesPrefix(makeKey(id, "")), nil)
+	deleter := db.lvl.NewIterator(util.BytesPrefix(makeKey(id, "")), nil)
 	defer deleter.Release()
 	for deleter.Next() {
 		if err := db.lvl.Delete(deleter.Key(), nil); err != nil {
@@ -204,9 +206,13 @@ func (db *nodeDB) expireNodes() error {
 		}
 
 		if !bytes.Equal(id[:], db.self[:]) {
-
+			if seen := db.bondTime(id); seen.After(threshold) {
+				continue
+			}
 		}
+		db.deleteNode(id)
 	}
+	return nil
 }
 
 func (db *nodeDB) lastPing(id NodeID) time.Time {
@@ -235,4 +241,65 @@ func (db *nodeDB) findFails(id NodeID) int {
 
 func (db *nodeDB) updateFindFails(id NodeID, fails int) error {
 	return db.storeInt64(makeKey(id, nodeDBDiscoverFindFails), int64(fails))
+}
+
+// querySeeds retrieves random nodes to be used as potential seed nodes
+// for bootstrapping.
+func (db *nodeDB) querySeeds(n int, maxAge time.Duration) []*Node {
+	var (
+		now   = time.Now()
+		nodes = make([]*Node, 0, n)
+		it    = db.lvl.NewIterator(nil, nil)
+		id    NodeID
+	)
+	defer it.Release()
+
+seek:
+	for seeks := 0; len(nodes) < n && seeks < n*5; seeks++ {
+		ctr := id[0]
+		rand.Read(id[:])
+		id[0] = ctr + id[0]%16
+		it.Seek(makeKey(id, nodeDBDiscoverRoot))
+
+		n := nextNode(it)
+		if n == nil {
+			id[0] = 0
+			continue seek
+		}
+		if n.ID == db.self {
+			continue seek
+		}
+		if now.Sub(db.bondTime(n.ID)) > maxAge {
+			continue seek
+		}
+		for i := range nodes {
+			if nodes[i].ID == n.ID {
+				continue seek
+			}
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+func nextNode(it iterator.Iterator) *Node {
+	for end := false; !end; end = !it.Next() {
+		_, field := splitKey(it.Key())
+		if field != nodeDBDiscoverRoot {
+			continue
+		}
+		var n Node
+		if err := rlp.DecodeBytes(it.Value(), &n); err != nil {
+			//			log.Warn("Failed to decode node RLP", "id", id, "err", err)
+			continue
+		}
+		return &n
+	}
+	return nil
+}
+
+// close flushes and closes the database files.
+func (db *nodeDB) close() {
+	close(db.quit)
+	db.lvl.Close()
 }
