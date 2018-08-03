@@ -110,6 +110,40 @@ type udp struct {
 	nat     nat.Interface
 }
 
+type pending struct {
+	from  NodeID
+	pbyte byte
+
+	deadline time.Time
+
+	callback func(resp interface{}) (done bool)
+	errc     chan<- error
+}
+
+type reply struct {
+	from  NodeID
+	pbyte byte
+
+	data   interface{}
+	mached chan<- bool
+}
+
+type ReadPacket struct {
+	Data []byte
+	Addr *net.UDPAddr
+}
+
+type Config struct {
+	PrivateKey *ecdsa.PrivateKey
+
+	/* optional */
+	AnnounceAddr *net.UDPAddr
+	NodedbPath   string
+	NetRestrict  *utils.Netlist
+	Bootnodes    []*Node
+	Unhandled    chan<- ReadPacket
+}
+
 func makeEndpoint(addr *net.UDPAddr, tcpPort uint16) rpcEndpoint {
 	ip := addr.IP.To4()
 	if ip == nil {
@@ -119,5 +153,10 @@ func makeEndpoint(addr *net.UDPAddr, tcpPort uint16) rpcEndpoint {
 }
 
 func (t *udp) nodeFromRPC(sender *net.UDPAddr, rn rpcNode) (*Node, error) {
-
+	if rn.UDP <= 1024 {
+		return nil, errors.New("low port")
+	}
+	if err := nat.CheckRelayIP(sender.IP, rn.IP); err != nil {
+		return nil, err
+	}
 }
