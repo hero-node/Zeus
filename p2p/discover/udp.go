@@ -1,6 +1,7 @@
 package discover
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"errors"
 	"net"
@@ -9,6 +10,8 @@ import (
 	"zeus/p2p/nat"
 	"zeus/p2p/utils"
 
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -90,7 +93,7 @@ type (
 	}
 )
 
-type coon interface {
+type conn interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
 	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
 	Close() error
@@ -98,7 +101,7 @@ type coon interface {
 }
 
 type udp struct {
-	coon        coon
+	conn        conn
 	netrestrict utils.Netlist
 	priv        *ecdsa.PrivateKey
 	ourEndpoint rpcEndpoint
@@ -108,11 +111,13 @@ type udp struct {
 
 	closing chan struct{}
 	nat     nat.Interface
+
+	*Table
 }
 
 type pending struct {
 	from  NodeID
-	pbyte byte
+	ptype byte
 
 	deadline time.Time
 
@@ -122,7 +127,7 @@ type pending struct {
 
 type reply struct {
 	from  NodeID
-	pbyte byte
+	ptype byte
 
 	data   interface{}
 	mached chan<- bool
@@ -144,6 +149,79 @@ type Config struct {
 	Unhandled    chan<- ReadPacket
 }
 
+func ListenUDP(c conn, cfg Config) (*Table, error) {
+	//	tab, _
+}
+
+func newUDP(c conn, cfg Config) (*Table, *udp, error) {
+	udp := &udp{
+		conn:        c,
+		priv:        cfg.PrivateKey,
+		netrestrict: cfg.NetRestrict,
+		closing:     make(chan struct{}),
+		gotreply:    make(chan reply),
+		addpending:  make(chan *pending),
+	}
+	realaddress := c.LocalAddr().(*net.UDPAddr)
+	udp.ourEndpoint = makeEndpoint(realaddress, uint16(realaddress.Port))
+	tab, err := newTable(udp, PubkeyID(&cfg.PrivateKey.PublicKey), realaddress, cfg.NodedbPath, cfg.Bootnodes)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	udp.Table = tab
+
+	//	TODO: go udp.loop
+}
+
+func (t *udp) close() {
+	close(t.closing)
+	t.conn.Close()
+}
+
+func (t *udp) ping(toid NodeID, toaddr *net.UDPAddr) error {
+	req := &ping{
+		Version:    Version,
+		From:       t.ourEndpoint,
+		To:         makeEndpoint(toaddr, 0),
+		Expiration: uint64(time.Now().Add(expiration).Unix()),
+	}
+	packet, hash, err := encodePacket(t.priv, pingPacket, req)
+	if err != nil {
+		return err
+	}
+
+	errc := t.pending(toid, pongPacket, func(p interface{}) bool {
+		return bytes.Equal(p.(*pong).ReplyTok, hash)
+	})
+	t.write(toaddr, req.name(), packet)
+	return <-errc
+
+}
+
+func (t *udp) waitping(from NodeID) error {
+	return <-t.pending(from, pingPacket, func(interface{}) bool { return true })
+}
+
+func (t *udp) pending(id NodeID, ptype byte, callback func(interface{}) bool) <-chan error {
+	ch := make(chan error, 1)
+	p := &pending{from: id, ptype: ptype, callback: callback, errc: ch}
+	select {
+	case t.addpending <- p:
+	// loop will handle it
+
+	case <-t.closing:
+		ch <- errClosed
+	}
+	return ch
+}
+
+func (t *udp) write(toaddr *net.UDPAddr, what string, packet []byte) error {
+	_, err := t.conn.WriteToUDP(packet, toaddr)
+	log.Trace(">> "+what, "addr", toaddr, "err", err)
+	return err
+}
+
 func makeEndpoint(addr *net.UDPAddr, tcpPort uint16) rpcEndpoint {
 	ip := addr.IP.To4()
 	if ip == nil {
@@ -160,3 +238,42 @@ func (t *udp) nodeFromRPC(sender *net.UDPAddr, rn rpcNode) (*Node, error) {
 		return nil, err
 	}
 }
+
+const (
+	macSize  = 256 / 8
+	sigSize  = 520 / 8
+	headSize = macSize + sigSize // space of packet frame data
+)
+
+var (
+	headSpace = make([]byte, headSize)
+
+	// Neighbors replies are sent across multiple packets to
+	// stay below the 1280 byte limit. We compute the maximum number
+	// of entries by stuffing a packet until it grows too large.
+	maxNeighbors int
+)
+
+func encodePacket(priv *ecdsa.PrivateKey, ptype byte, req interface{}) (packet, hash []byte, err error) {
+	b := new(bytes.Buffer)
+	b.Write(headSpace)
+	b.WriteByte(ptype)
+
+	if err := rlp.Encode(b, req); err != nil {
+		log.Error("Cannot encode packet")
+		return nil, nil, err
+	}
+	packet := b.Bytes()
+	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
+	if err != nil {
+		log.Error("Cannot encode packet")
+		return nil, nil, err
+	}
+
+	copy(packet[macSize:], sig)
+	hash := crypto.Keccak256(packet[macSize:])
+	copy(packet, hash)
+	return packet, hash, nil
+}
+
+func (req *ping) name() string { return "PING/v4" }
