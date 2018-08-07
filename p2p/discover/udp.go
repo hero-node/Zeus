@@ -93,6 +93,11 @@ type (
 	}
 )
 
+type packet interface {
+	handle(t *udp, from *net.UDPAddr, fromID NodeID, mac []byte) error
+	name() string
+}
+
 type conn interface {
 	ReadFromUDP(b []byte) (n int, addr *net.UDPAddr, err error)
 	WriteToUDP(b []byte, addr *net.UDPAddr) (n int, err error)
@@ -203,6 +208,32 @@ func (t *udp) waitping(from NodeID) error {
 	return <-t.pending(from, pingPacket, func(interface{}) bool { return true })
 }
 
+func (t *udp) findnode(toid NodeID, toaddr *net.UDPAddr, target NodeID) ([]*Node, error) {
+	nodes := make([]*Node, 0, bucketSize)
+	nreceived := 0
+	errc := t.pending(toid, neighborsPacket, func(r interface{}) bool {
+		reply := r.(*neighbors)
+		for _, rn := range reply.Nodes {
+			nreceived++
+			n, err := t.nodeFromRPC(toaddr, rn)
+			if err != nil {
+				log.Trace("Invalid neighbor node received", "ip", rn.IP, "addr", toaddr, "err", err)
+				continue
+			}
+			nodes = append(nodes, n)
+		}
+		return nreceived >= bucketSize
+	})
+
+	t.send(toaddr, findnodePacket, &findnode{
+		Target:     target,
+		Expiration: uint64(time.Now().Add(expiration).Unix()),
+	})
+
+	err := <-errc
+	return nodes, err
+}
+
 func (t *udp) pending(id NodeID, ptype byte, callback func(interface{}) bool) <-chan error {
 	ch := make(chan error, 1)
 	p := &pending{from: id, ptype: ptype, callback: callback, errc: ch}
@@ -214,6 +245,25 @@ func (t *udp) pending(id NodeID, ptype byte, callback func(interface{}) bool) <-
 		ch <- errClosed
 	}
 	return ch
+}
+
+func (t *udp) handelReply(from NodeID, ptype byte, req packet) bool {
+	matched := make(chan bool, 1)
+	select {
+	case t.gotreply <- reply{from, ptype, req, matched}:
+		// loop will handle it
+		return matched
+	case <-t.closing:
+		return false
+	}
+}
+
+func (t *udp) send(toaddr *net.UDPAddr, ptype byte, req packet) ([]byte, error) {
+	packet, hash, err := encodePacket(t.priv, ptype, req)
+	if err != nil {
+		return hash, err
+	}
+	return hash, t.write(toaddr, req.name(), packet)
 }
 
 func (t *udp) write(toaddr *net.UDPAddr, what string, packet []byte) error {
@@ -263,7 +313,7 @@ func encodePacket(priv *ecdsa.PrivateKey, ptype byte, req interface{}) (packet, 
 		log.Error("Cannot encode packet")
 		return nil, nil, err
 	}
-	packet := b.Bytes()
+	packet = b.Bytes()
 	sig, err := crypto.Sign(crypto.Keccak256(packet[headSize:]), priv)
 	if err != nil {
 		log.Error("Cannot encode packet")
