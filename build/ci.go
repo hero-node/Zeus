@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -13,7 +14,12 @@ import (
 var GOBIN, _ = filepath.Abs(filepath.Join("build", "bin"))
 
 func main() {
-	doInstall()
+	switch os.Args[1] {
+	case "install":
+		doInstall()
+	case "xgo":
+		doXgo(os.Args[2:])
+	}
 }
 
 func goPath() string {
@@ -45,11 +51,59 @@ func gitcommit() string {
 func doInstall() {
 	//	gitCommit := gitcommit()
 	//	gitCommitString := "main.gitCommit=" + gitCommit
-	cmd := exec.Command("go", []string{"install", "--ldflags", "-v", "./gher.go"}...)
+
+	cmd := exec.Command("go", []string{"install", "-v", "./cmd/gher/gher.go"}...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
-	cmd.Env = os.Environ()
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "GOPATH=") || strings.HasPrefix(e, "GOBIN=") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, e)
+	}
 	cmd.Env = append(cmd.Env, "GOPATH="+goPath())
 	cmd.Env = append(cmd.Env, "GOBIN="+GOBIN)
+
+	cmd.Run()
+}
+
+func getXgo() {
+	cmd := exec.Command("go", []string{"get", "github.com/karalabe/xgo"}...)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "GOPATH=") || strings.HasPrefix(e, "GOBIN=") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, e)
+	}
+	cmd.Env = append(cmd.Env, "GOPATH="+goPath())
+	cmd.Env = append(cmd.Env, "GOBIN="+GOBIN)
+
+	cmd.Run()
+	fmt.Println("getXgo done")
+}
+
+func doXgo(cmdlinne []string) {
+	flag.CommandLine.Parse(cmdlinne)
+	getXgo()
+
+	args := append([]string{}, flag.Args()...)
+
+	path := "./cmd/gher"
+	args = append(args, []string{"--dest", GOBIN, path}...)
+	fmt.Println(args)
+	cmd := exec.Command(filepath.Join(GOBIN, "xgo"), args...)
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "GOPATH=") || strings.HasPrefix(e, "GOBIN=") {
+			continue
+		}
+		cmd.Env = append(cmd.Env, e)
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = append(cmd.Env, "GOPATH="+goPath())
+	cmd.Env = append(cmd.Env, "GOBIN="+GOBIN)
+	fmt.Println(cmd.Args)
 	cmd.Run()
 }
