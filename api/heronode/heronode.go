@@ -43,6 +43,7 @@ func InitRoute(router *gin.Engine) {
 
 	router.GET("/account/transaction/count/:chain/:hash", getTransactionCountInBlock)
 	router.GET("/sendRawTransaction/:chain/:data", sendRawTransaction)
+	router.GET("/transaction/:chain/:hash", getTransactionByHash)
 }
 
 func getChainAvailable(c *gin.Context) {
@@ -403,6 +404,30 @@ func sendRawTransaction(c *gin.Context) {
 		// TODO
 	case global.ETH:
 		resp, err := Call_ETH("eth_sendRawTransaction", []interface{}{data})
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": resp,
+		})
+
+	case global.QTUM:
+
+	}
+}
+
+func getTransactionByHash(c *gin.Context) {
+	chain := strings.ToLower(c.Param("chain"))
+	hash := c.Param("hash")
+
+	switch chain {
+	case global.BTC:
+
+	case global.ETH:
+		resp, err := Call_ETH("eth_getTransactionByHash", []interface{}{hash})
 		if err != nil {
 			noderror.Error(err, c)
 			return

@@ -3,6 +3,7 @@ package rpcclient
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 )
@@ -19,6 +20,8 @@ func Call_ETH(host string, method string, params []interface{}) (*ETHResp, error
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println(string(jsonstring))
 	req, err := http.NewRequest("POST", host, bytes.NewBuffer(jsonstring))
 	if err != nil {
 		return nil, err

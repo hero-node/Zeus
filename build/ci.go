@@ -81,7 +81,6 @@ func getXgo() {
 	cmd.Env = append(cmd.Env, "GOBIN="+GOBIN)
 
 	cmd.Run()
-	fmt.Println("getXgo done")
 }
 
 func doXgo(cmdlinne []string) {
@@ -92,7 +91,6 @@ func doXgo(cmdlinne []string) {
 
 	path := "./cmd/gher"
 	args = append(args, []string{"--dest", GOBIN, path}...)
-	fmt.Println(args)
 	cmd := exec.Command(filepath.Join(GOBIN, "xgo"), args...)
 	for _, e := range os.Environ() {
 		if strings.HasPrefix(e, "GOPATH=") || strings.HasPrefix(e, "GOBIN=") {
