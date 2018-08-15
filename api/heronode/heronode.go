@@ -1,7 +1,6 @@
 package heronode
 
 import (
-	l "log"
 	"time"
 	"zeus/api/noderror"
 	"zeus/utils/global"
@@ -14,7 +13,6 @@ import (
 	"math/big"
 	"runtime"
 
-	"github.com/Mercy-Li/Goconfig/config"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
@@ -23,11 +21,7 @@ import (
 var ethHost string
 
 func InitRoute(router *gin.Engine) {
-	ethHostLocal, err := config.GetConfigString("ethhost")
-	ethHost = ethHostLocal
-	if err != nil {
-		l.Fatalln("get ethhost error")
-	}
+	ethHost = global.Ethhost()
 
 	router.GET("/available/:chain", getChainAvailable)
 	router.GET("/balance/:chain/:address", getBalance)
@@ -44,6 +38,11 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/account/transaction/count/:chain/:hash", getTransactionCountInBlock)
 	router.GET("/sendRawTransaction/:chain/:data", sendRawTransaction)
 	router.GET("/transaction/:chain/:hash", getTransactionByHash)
+	router.GET("/transactionReceipt/:chain/:hash", getReceiptByHash)
+
+	// ipfs
+	router.POST("/ipfs/add", ReverseProxy())
+	router.GET("/ipfs/swarm/peers", ReverseProxy())
 }
 
 func getChainAvailable(c *gin.Context) {
@@ -428,6 +427,30 @@ func getTransactionByHash(c *gin.Context) {
 
 	case global.ETH:
 		resp, err := Call_ETH("eth_getTransactionByHash", []interface{}{hash})
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": resp,
+		})
+
+	case global.QTUM:
+
+	}
+}
+
+func getReceiptByHash(c *gin.Context) {
+	chain := strings.ToLower(c.Param("chain"))
+	hash := c.Param("hash")
+
+	switch chain {
+	case global.BTC:
+
+	case global.ETH:
+		resp, err := Call_ETH("eth_getTransactionReceipt", []interface{}{hash})
 		if err != nil {
 			noderror.Error(err, c)
 			return
