@@ -1,6 +1,10 @@
 package heronode
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
+	"sync"
 	"time"
 	"zeus/api/noderror"
 	"zeus/utils/global"
@@ -13,6 +17,8 @@ import (
 	"math/big"
 	"runtime"
 
+	"zeus/api/utils"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
@@ -23,6 +29,7 @@ var ethHost string
 func InitRoute(router *gin.Engine) {
 	ethHost = global.Ethhost()
 
+	router.GET("/isHero", isHero)
 	router.GET("/available/:chain", getChainAvailable)
 	router.GET("/balance/:chain/:address", getBalance)
 	router.GET("/chains", getAllAvailableChains)
@@ -39,6 +46,7 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/sendRawTransaction/:chain/:data", sendRawTransaction)
 	router.GET("/transaction/:chain/:hash", getTransactionByHash)
 	router.GET("/transactionReceipt/:chain/:hash", getReceiptByHash)
+	router.GET("/peers", getPeers)
 
 	// ipfs
 	router.POST("/ipfs/add", ReverseProxy())
@@ -148,6 +156,13 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/ipfs/update", ReverseProxy())
 	router.GET("/ipfs/version", ReverseProxy())
 
+}
+
+func isHero(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"result":  "success",
+		"content": 1,
+	})
 }
 
 func getChainAvailable(c *gin.Context) {
@@ -569,4 +584,107 @@ func getReceiptByHash(c *gin.Context) {
 	case global.QTUM:
 
 	}
+}
+
+func getPeers(c *gin.Context) {
+	// TODO: no hard code
+	resp, err := http.Get("http://localhost:8080/ipfs/swarm/peers")
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+	var result map[string]interface{}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+
+	peers := result["Peers"].([]interface{})
+	addrs := make([]string, 0)
+	for _, peer := range peers {
+		addr := utils.ExtractIPv4(peer.(map[string]interface{})["Addr"].(string))
+		dup := false
+		if addr != "" {
+			for _, a := range addrs {
+				if a == addr {
+					dup = true
+				}
+			}
+
+			if !dup {
+				addrs = append(addrs, addr)
+			}
+		}
+	}
+
+	max := len(addrs)
+	mutex := sync.Mutex{}
+	done := make(chan int)
+	response := []string{}
+	for _, a := range addrs {
+		path := utils.ConstructUrl(a)
+		go func() {
+			resp, err := http.Get(path + "/isHero")
+			if err != nil {
+				mutex.Lock()
+				max = max - 1
+				mutex.Unlock()
+				if len(response) == max {
+					done <- 1
+				}
+				return
+			}
+			defer resp.Body.Close()
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				mutex.Lock()
+				max = max - 1
+				mutex.Unlock()
+				if len(response) == max {
+					done <- 1
+				}
+				return
+			}
+			var result map[string]interface{}
+			err = json.Unmarshal(body, &result)
+			if err != nil {
+				mutex.Lock()
+				max = max - 1
+				mutex.Unlock()
+				if len(response) == max {
+					done <- 1
+				}
+				return
+			}
+			if result["result"] == "success" {
+				mutex.Lock()
+				response = append(response, a)
+				mutex.Unlock()
+				if len(response) == max {
+					done <- 1
+				}
+			} else {
+				mutex.Lock()
+				max = max - 1
+				mutex.Unlock()
+				if len(response) == max {
+					done <- 1
+				}
+			}
+		}()
+	}
+
+	<-done
+	c.JSON(200, gin.H{
+		"result":  "success",
+		"content": response,
+	})
 }
