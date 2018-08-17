@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	l "log"
+	"zeus/api/bootstrap"
 	"zeus/api/heronode"
 
 	"github.com/Mercy-Li/Goconfig/config"
@@ -12,7 +13,10 @@ import (
 func main() {
 	testnet := flag.Bool("testnet", false, "is testnet")
 	pconfig := flag.String("config", "./heronode.conf", "config file")
+	bootstrap := flag.String("bootlist", "./bootstrap.list", "bootstrap list")
 	flag.Parse()
+
+	bootstrap.InitBootStrap(*bootstrap)
 
 	var psection string
 	if *testnet {

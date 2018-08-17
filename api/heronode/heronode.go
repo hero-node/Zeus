@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"runtime"
 
+	"zeus/api/bootstrap"
 	"zeus/api/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -624,6 +625,8 @@ func getPeers(c *gin.Context) {
 			}
 		}
 	}
+
+	addrs = append(addrs, bootstrap.B.bootlist)
 
 	max := len(addrs)
 	mutex := sync.Mutex{}
