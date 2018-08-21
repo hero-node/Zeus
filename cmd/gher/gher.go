@@ -13,10 +13,10 @@ import (
 func main() {
 	testnet := flag.Bool("testnet", false, "is testnet")
 	pconfig := flag.String("config", "./heronode.conf", "config file")
-	bootstrap := flag.String("bootlist", "./bootstrap.list", "bootstrap list")
+	boot := flag.String("bootlist", "./bootstrap.list", "bootstrap list")
 	flag.Parse()
 
-	bootstrap.InitBootStrap(*bootstrap)
+	bootstrap.InitBootStrap(*boot)
 
 	var psection string
 	if *testnet {

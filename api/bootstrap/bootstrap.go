@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -11,7 +10,7 @@ import (
 
 type BootStrap struct {
 	filepath string
-	bootlist []string
+	Bootlist []string
 	err      error
 }
 
@@ -39,21 +38,21 @@ func getBootList() {
 		result = append(result, string(a))
 	}
 
-	B.bootlist = result
+	B.Bootlist = result
 	removeLocal()
 }
 
 func removeLocal() {
 	localIp := getLocalIP()
 
-	list := B.bootlist
+	list := B.Bootlist
 	for k, v := range list {
 		if v == localIp {
 			list = append(list[:k], list[k+1:]...)
 		}
 	}
 
-	B.bootlist = list
+	B.Bootlist = list
 }
 
 func getLocalIP() string {

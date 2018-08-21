@@ -7,9 +7,9 @@ import (
 
 func TestGetStrapList(t *testing.T) {
 	InitBootStrap("./bootstrap.list")
-	fmt.Println(B.bootlist)
+	fmt.Println(B.Bootlist)
 	wanted := []string{"47.52.172.254", "106.14.187.240"}
-	if !equal(B.bootlist, wanted) {
+	if !equal(B.Bootlist, wanted) {
 		t.Error("Not wanted bootlist")
 	}
 }

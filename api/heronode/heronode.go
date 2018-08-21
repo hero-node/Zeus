@@ -2,6 +2,7 @@ package heronode
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -626,7 +627,7 @@ func getPeers(c *gin.Context) {
 		}
 	}
 
-	addrs = append(addrs, bootstrap.B.bootlist)
+	addrs = append(addrs, bootstrap.B.Bootlist...)
 
 	max := len(addrs)
 	mutex := sync.Mutex{}
@@ -634,17 +635,21 @@ func getPeers(c *gin.Context) {
 	response := []string{}
 	for _, a := range addrs {
 		path := utils.ConstructUrl(a)
+		fmt.Println(path)
 		go func() {
-			resp, err := http.Get(path + "/isHero")
+			netClient := http.Client{Timeout: time.Second * 10}
+			resp, err := netClient.Get(path + "/isHero")
 			if err != nil {
 				mutex.Lock()
 				max = max - 1
 				mutex.Unlock()
+				fmt.Println(max)
 				if len(response) == max {
 					done <- 1
 				}
 				return
 			}
+			fmt.Println("不会到这得")
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
@@ -686,6 +691,8 @@ func getPeers(c *gin.Context) {
 	}
 
 	<-done
+
+	fmt.Println("Done")
 	c.JSON(200, gin.H{
 		"result":  "success",
 		"content": response,
