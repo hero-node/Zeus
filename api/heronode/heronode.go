@@ -588,6 +588,8 @@ func getReceiptByHash(c *gin.Context) {
 	}
 }
 
+var max int
+
 func getPeers(c *gin.Context) {
 	// TODO: no hard code
 	resp, err := http.Get("http://localhost:8080/ipfs/swarm/peers")
@@ -629,24 +631,26 @@ func getPeers(c *gin.Context) {
 
 	addrs = append(addrs, bootstrap.B.Bootlist...)
 
-	max := len(addrs)
+	max = len(addrs)
 	mutex := sync.Mutex{}
 	done := make(chan int)
 	response := []string{}
+
+	fmt.Println("len", len(addrs))
 	for _, a := range addrs {
 		path := utils.ConstructUrl(a)
-		fmt.Println(path)
 		go func() {
-			netClient := http.Client{Timeout: time.Second * 10}
+			netClient := http.Client{Timeout: time.Second * 5}
 			resp, err := netClient.Get(path + "/isHero")
+
 			if err != nil {
 				mutex.Lock()
 				max = max - 1
-				mutex.Unlock()
 				fmt.Println(max)
 				if len(response) == max {
 					done <- 1
 				}
+				mutex.Unlock()
 				return
 			}
 			fmt.Println("不会到这得")
@@ -655,10 +659,10 @@ func getPeers(c *gin.Context) {
 			if err != nil {
 				mutex.Lock()
 				max = max - 1
-				mutex.Unlock()
 				if len(response) == max {
 					done <- 1
 				}
+				mutex.Unlock()
 				return
 			}
 			var result map[string]interface{}
@@ -666,35 +670,47 @@ func getPeers(c *gin.Context) {
 			if err != nil {
 				mutex.Lock()
 				max = max - 1
-				mutex.Unlock()
 				if len(response) == max {
 					done <- 1
 				}
+				mutex.Unlock()
 				return
 			}
 			if result["result"] == "success" {
 				mutex.Lock()
 				response = append(response, a)
-				mutex.Unlock()
+
 				if len(response) == max {
 					done <- 1
 				}
+				mutex.Unlock()
 			} else {
 				mutex.Lock()
 				max = max - 1
-				mutex.Unlock()
+
 				if len(response) == max {
 					done <- 1
 				}
+				mutex.Unlock()
 			}
 		}()
 	}
 
-	<-done
+	select {
+	case <-done:
+		fmt.Println("Done")
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": response,
+		})
 
-	fmt.Println("Done")
-	c.JSON(200, gin.H{
-		"result":  "success",
-		"content": response,
-	})
+	case <-time.Tick(time.Second * 12):
+		fmt.Println("Timeout")
+		defer func() { <-done }()
+		c.JSON(500, gin.H{
+			"result": "error",
+			"reason": "Timeout",
+		})
+	}
+
 }
