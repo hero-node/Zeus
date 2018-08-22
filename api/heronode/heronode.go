@@ -2,7 +2,6 @@ package heronode
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -636,19 +635,16 @@ func getPeers(c *gin.Context) {
 	done := make(chan int)
 	response := []string{}
 
-	fmt.Println("len", len(addrs))
 	for _, a := range addrs {
 
 		go func(addr string) {
 			path := utils.ConstructUrl(addr)
-			fmt.Println(path)
 			netClient := http.Client{Timeout: time.Second * 5}
 			resp, err := netClient.Get(path + "/isHero")
 
 			if err != nil {
 				mutex.Lock()
 				max = max - 1
-				fmt.Println(max)
 				if len(response) == max {
 					done <- 1
 				}
@@ -680,8 +676,6 @@ func getPeers(c *gin.Context) {
 			}
 			if result["result"] == "success" {
 				mutex.Lock()
-				fmt.Println(addr)
-				fmt.Println(path)
 				response = append(response, addr)
 
 				if len(response) == max {
@@ -702,14 +696,12 @@ func getPeers(c *gin.Context) {
 
 	select {
 	case <-done:
-		fmt.Println("Done")
 		c.JSON(200, gin.H{
 			"result":  "success",
 			"content": response,
 		})
 
 	case <-time.Tick(time.Second * 12):
-		fmt.Println("Timeout")
 		defer func() { <-done }()
 		c.JSON(500, gin.H{
 			"result": "error",
