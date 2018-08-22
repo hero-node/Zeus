@@ -5,6 +5,7 @@ import (
 	l "log"
 	"zeus/api/bootstrap"
 	"zeus/api/heronode"
+	"zeus/utils/global"
 
 	"github.com/Mercy-Li/Goconfig/config"
 	"github.com/gin-gonic/gin"
@@ -36,11 +37,7 @@ func main() {
 		l.Fatalln("Loadconfig File from %s failed. err=%v", *pconfig, err)
 	}
 
-	port, err := config.GetConfigString("api.listen")
-	if err != nil {
-		l.Fatalln("get port config error")
-	}
-
+	port := global.ApiListenPort()
 	gin.SetMode(gin.DebugMode)
 	router := gin.Default()
 

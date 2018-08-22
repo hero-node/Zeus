@@ -591,8 +591,8 @@ func getReceiptByHash(c *gin.Context) {
 var max int
 
 func getPeers(c *gin.Context) {
-	// TODO: no hard code
-	resp, err := http.Get("http://localhost:8080/ipfs/swarm/peers")
+	localPath := "http://localhost" + global.ApiListenPort() + "/ipfs/swarm/peers"
+	resp, err := http.Get(localPath)
 	if err != nil {
 		noderror.Error(err, c)
 		return
@@ -638,8 +638,10 @@ func getPeers(c *gin.Context) {
 
 	fmt.Println("len", len(addrs))
 	for _, a := range addrs {
-		path := utils.ConstructUrl(a)
-		go func() {
+
+		go func(addr string) {
+			path := utils.ConstructUrl(addr)
+			fmt.Println(path)
 			netClient := http.Client{Timeout: time.Second * 5}
 			resp, err := netClient.Get(path + "/isHero")
 
@@ -653,7 +655,7 @@ func getPeers(c *gin.Context) {
 				mutex.Unlock()
 				return
 			}
-			fmt.Println("不会到这得")
+
 			defer resp.Body.Close()
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
@@ -678,7 +680,9 @@ func getPeers(c *gin.Context) {
 			}
 			if result["result"] == "success" {
 				mutex.Lock()
-				response = append(response, a)
+				fmt.Println(addr)
+				fmt.Println(path)
+				response = append(response, addr)
 
 				if len(response) == max {
 					done <- 1
@@ -693,7 +697,7 @@ func getPeers(c *gin.Context) {
 				}
 				mutex.Unlock()
 			}
-		}()
+		}(a)
 	}
 
 	select {

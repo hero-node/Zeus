@@ -27,3 +27,11 @@ func IpfsHost() string {
 	}
 	return ipfshost
 }
+
+func ApiListenPort() string {
+	port, err := config.GetConfigString("api.listen")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return port
+}
