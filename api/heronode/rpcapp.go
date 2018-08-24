@@ -2,14 +2,15 @@ package heronode
 
 import (
 	"zeus/rpcclient"
-
-	"github.com/Mercy-Li/Goconfig/config"
+	"zeus/utils/global"
 )
 
 func Call_ETH(method string, params []interface{}) (*rpcclient.ETHResp, error) {
-	host, err := config.GetConfigString("ethhost")
-	if err != nil {
-		return nil, err
-	}
+	host := global.Ethhost()
 	return rpcclient.Call_ETH(host, method, params)
+}
+
+func Call_QTUM(method string, params []interface{}) (*rpcclient.QTUMResp, error) {
+	host := global.Qtumhost()
+	return rpcclient.Call_QTUM(host, method, params)
 }

@@ -35,3 +35,12 @@ func ApiListenPort() string {
 	}
 	return port
 }
+
+func QtumUserAndPassword() []string {
+	user, err := config.GetConfigString("qtumuser")
+	password, err := config.GetConfigString("qtumpassword")
+	if err != nil {
+		return []string{"", ""}
+	}
+	return []string{user, password}
+}
