@@ -2,6 +2,7 @@ package discover
 
 import (
 	"bytes"
+	"container/list"
 	"crypto/ecdsa"
 	"errors"
 	"net"
@@ -155,7 +156,11 @@ type Config struct {
 }
 
 func ListenUDP(c conn, cfg Config) (*Table, error) {
-	//	tab, _
+	tab, _, err := newUDP(c, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return tab, nil
 }
 
 func newUDP(c conn, cfg Config) (*Table, *udp, error) {
@@ -247,7 +252,7 @@ func (t *udp) pending(id NodeID, ptype byte, callback func(interface{}) bool) <-
 	return ch
 }
 
-func (t *udp) handelReply(from NodeID, ptype byte, req packet) bool {
+func (t *udp) handleReply(from NodeID, ptype byte, req packet) bool {
 	matched := make(chan bool, 1)
 	select {
 	case t.gotreply <- reply{from, ptype, req, matched}:
@@ -255,6 +260,86 @@ func (t *udp) handelReply(from NodeID, ptype byte, req packet) bool {
 		return matched
 	case <-t.closing:
 		return false
+	}
+}
+
+func (t *udp) loop() {
+	var (
+		plist        = list.New()
+		timeout      = time.NewTimer(0)
+		nextTimeout  *pending
+		contTimeouts = 0
+		ntpWarnTime  = time.Unix(0, 0)
+	)
+
+	<-timeout.C
+	defer timeout.Stop()
+
+	resetTimeout := func() {
+		if plist.Front() == nil || nextTimeout == plist.Front().Value {
+			return
+		}
+		now := time.Now()
+		for el := plist.Front(); el != nil; el = el.Next() {
+			nextTimeout = el.Value.(*pending)
+			if dist := nextTimeout.deadline.Sub(now); dist < 2*respTimeout {
+				timeout.Reset()
+				return
+			}
+			nextTimeout.errc <- errClockWarp
+			plist.Remove(el)
+		}
+		nextTimeout = nil
+		timeout.Stop()
+	}
+
+	for {
+		resetTimeout()
+
+		select {
+		case t.closing:
+			for el := plist.Front(); el != nil; el = el.Next() {
+				el.Value.(*pending).errc <- errClosed
+				return
+			}
+
+		case p := <-t.addpending:
+			p.deadline = time.Now().Add(respTimeout)
+			plist.PushBack(p)
+
+		case r := <-t.gotreply:
+			var matched bool
+			for el := plist.Front(); el != nil; el = el.Next() {
+				p := el.Value.(*pending)
+				if p.from == r.from && p.ptype == r.ptype {
+					matched = true
+					if p.callback(r.data) {
+						p.errc <- nil
+						plist.Remove(el)
+					}
+					contTimeouts = 0
+				}
+			}
+			r.mached = matched
+
+		case now := <-timeout.C:
+			nextTimeout = nil
+			for el := plist.Front(); el != nil; el = el.Next() {
+				p := el.Value.(*pending)
+				if now.After(p.deadline) || now.Equal(p.deadline) {
+					p.errc <- errTimeout
+					plist.Remove(el)
+					contTimeouts++
+				}
+			}
+			if contTimeouts > ntpFailureThreshold {
+				if time.Since(ntpWarnTime) >= ntpWarningCooldown {
+					ntpWarnTime = time.Now()
+					go checkClockDrift()
+				}
+				contTimeouts = 0
+			}
+		}
 	}
 }
 
