@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 	"zeus/api/noderror"
@@ -183,7 +184,13 @@ func getChainAvailable(c *gin.Context) {
 			ok = true
 		}
 	case global.QTUM:
-		// TODO: QTUM
+		_, err := Call_QTUM("getinfo", []interface{}{})
+		if err != nil {
+			ok = false
+		} else {
+			ok = true
+		}
+
 	default:
 	}
 
@@ -263,7 +270,12 @@ func getAllAvailableChains(c *gin.Context) {
 		}
 	}
 
-	// TODO: QTUM
+	qtumresp, err := Call_QTUM("getnetworkinfo", []string)
+	if err == nil {
+		rsp["qtum"] = gin.H{
+			"networkVersion": qtumresp.Result.(map[string]interface{})["version"],
+		}
+	}
 
 	c.JSON(200, rsp)
 }
@@ -409,7 +421,33 @@ func getBlockByHeightOrHash(c *gin.Context) {
 			})
 		}
 	case global.QTUM:
-		// TODO
+		if len(height) > 0 {
+			heightInt, err := strconv.Atoi(height)
+			if err != nil {
+				noderror.Error(err, c)
+				return
+			}
+
+			resp, err := Call_QTUM("getblockhash", []string{heightInt})
+			if err != nil {
+				noderror.Error(err, c)
+				return
+			}
+
+			hash = resp.Result.(string)
+		}
+
+		resp, err := Call_QTUM("getblock", []string{hash})
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		block := resp.Result
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": block,
+		})
 	}
 }
 
@@ -448,7 +486,23 @@ func getBlockHashByHeight(c *gin.Context) {
 		})
 
 	case global.QTUM:
+		heightInt, err := strconv.Atoi(height)
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
 
+		resp, err := Call_QTUM("getblockhash", []string{heightInt})
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		hash := resp.Result.(string)
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": hash,
+		})
 	}
 }
 
@@ -480,7 +534,15 @@ func getBlockHeight(c *gin.Context) {
 		})
 
 	case global.QTUM:
-		// TODO
+		resp, err := Call_QTUM("getblockcount", []string)
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+		c.JSON(200, gin.H{
+			"result":  "success",
+			"content": resp.Result,
+		})
 	}
 }
 
