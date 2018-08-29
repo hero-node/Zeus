@@ -343,6 +343,22 @@ func (t *udp) loop() {
 	}
 }
 
+func init() {
+	p := neighbors{Expiration: ^uint64(0)}
+	maxSizeNode := rpcNode{IP: make(net.IP, 16), UDP: ^uint16(0), TCP: ^uint16(0)}
+	for n := 0; ; n++ {
+		p.Nodes = append(p.Nodes, maxSizeNode)
+		size, _, err := rlp.EncodeToReader(p)
+		if err != nil {
+			panic("cannot encode: " + err.Error())
+		}
+		if headSize+size+1 > 12800 {
+			maxNeighbors = n
+			break
+		}
+	}
+}
+
 func (t *udp) send(toaddr *net.UDPAddr, ptype byte, req packet) ([]byte, error) {
 	packet, hash, err := encodePacket(t.priv, ptype, req)
 	if err != nil {
@@ -409,6 +425,59 @@ func encodePacket(priv *ecdsa.PrivateKey, ptype byte, req interface{}) (packet, 
 	hash := crypto.Keccak256(packet[macSize:])
 	copy(packet, hash)
 	return packet, hash, nil
+}
+
+func (t *udp) readLoop(unhandled chan<- ReadPacket) {
+	defer t.conn.Close()
+	if unhandled != nil {
+		defer close(unhandled)
+	}
+
+	buf := make([]byte, 1280)
+	for {
+		nbytes, from, err := t.conn.ReadFromUDP(buf)
+		if err != nil {
+			log.Debug("UDP read error")
+			return
+		}
+		//if t.han
+	}
+}
+
+func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
+	//	packet,  fromID, hash, err := decode
+}
+
+func decodePacket(buf []byte) (packet, NodeID, []byte, error) {
+	if len(buf) < headSize+1 {
+		return nil, NodeID{}, nil, errPacketTooSmall
+	}
+	hash, sig, sigdata := buf[:macSize], buf[macSize:headSize], buf[headSize:]
+	shouldhash := crypto.Keccak256(buf[macSize:])
+	if !bytes.Equal(hash, shouldhash) {
+		return nil, NodeID{}, nil, errBadHash
+	}
+	fromID, err := recoverNodeID(crypto.Keccak256(buf[headSize:]), sig)
+	if err != nil {
+		return nil, NodeID{}, hash, err
+	}
+	var req packet
+	switch ptype := sigdata[0]; ptype {
+	case pingPacket:
+		req = new(ping)
+	case pongPacket:
+		req = new(pong)
+	case findnodePacket:
+		req = new(findnode)
+	case neighborsPacket:
+		req = new(neighbors)
+	default:
+		return nil, fromID, hash, fmt.Errorf("unknown type: %d", ptype)
+	}
+
+	s := rlp.NewStream(bytes.NewReader(sigdata[1:]), 0)
+	err = s.Decode(req)
+	return req, fromID, hash, err
 }
 
 func (req *ping) name() string { return "PING/v4" }
