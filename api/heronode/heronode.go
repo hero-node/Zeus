@@ -37,6 +37,8 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/chains", getAllAvailableChains)
 	router.GET("/gasPrice/:chain", getGasPrice)
 	router.GET("/gasPrice", getEthGasPrice)
+	router.GET("/gasLimit/:chain", getGasLimit)
+	router.GET("/gasLimit", getEthGasLimit)
 	router.GET("/info", getNodeInfo)
 	// router.GET("/mining/:chain", getMining)
 
@@ -270,7 +272,7 @@ func getAllAvailableChains(c *gin.Context) {
 		}
 	}
 
-	qtumresp, err := Call_QTUM("getnetworkinfo", []string)
+	qtumresp, err := Call_QTUM("getnetworkinfo", []interface{}{})
 	if err == nil {
 		rsp["qtum"] = gin.H{
 			"networkVersion": qtumresp.Result.(map[string]interface{})["version"],
@@ -278,6 +280,93 @@ func getAllAvailableChains(c *gin.Context) {
 	}
 
 	c.JSON(200, rsp)
+}
+
+func getGasLimit(c *gin.Context) {
+	chain := strings.ToLower(c.Param("chain"))
+
+	isEth := false
+
+	from := c.Query("from")
+	to := c.Query("to")
+	data := c.Query("data")
+
+	obj := map[string]string{}
+	if len(from) > 0 {
+		obj["from"] = from
+	}
+	if len(to) > 0 {
+		obj["to"] = to
+	}
+	if len(data) > 0 {
+		obj["data"] = data
+	}
+
+	switch chain {
+	case global.BTC:
+		c.JSON(500, gin.H{
+			"result": "error",
+			"reason": "No gas for btc",
+		})
+	case global.ETH:
+		isEth = true
+
+	case global.QTUM:
+		c.JSON(500, gin.H{
+			"result": "error",
+			"reason": "No gas for qtum",
+		})
+	default:
+		isEth = true
+	}
+
+	if isEth {
+		resp, err := Call_ETH("eth_estimateGas", []interface{}{obj})
+		if err != nil {
+			noderror.Error(err, c)
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"result": "success",
+			"content": gin.H{
+				"chain":    "eth",
+				"gasLimit": resp.Result.(map[string]interface{})["result"],
+			},
+		})
+	}
+}
+
+func getEthGasLimit(c *gin.Context) {
+
+	from := c.Query("from")
+	to := c.Query("to")
+	data := c.Query("data")
+
+	obj := map[string]string{}
+	if len(from) > 0 {
+		obj["from"] = from
+	}
+	if len(to) > 0 {
+		obj["to"] = to
+	}
+	if len(data) > 0 {
+		obj["data"] = data
+	}
+
+	resp, err := Call_ETH("eth_estimateGas", []interface{}{obj})
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"result": "success",
+		"content": gin.H{
+			"chain":    "eth",
+			"gasLimit": resp.Result.(map[string]interface{})["result"],
+		},
+	})
 }
 
 func getGasPrice(c *gin.Context) {
@@ -428,7 +517,7 @@ func getBlockByHeightOrHash(c *gin.Context) {
 				return
 			}
 
-			resp, err := Call_QTUM("getblockhash", []string{heightInt})
+			resp, err := Call_QTUM("getblockhash", []interface{}{heightInt})
 			if err != nil {
 				noderror.Error(err, c)
 				return
@@ -437,7 +526,7 @@ func getBlockByHeightOrHash(c *gin.Context) {
 			hash = resp.Result.(string)
 		}
 
-		resp, err := Call_QTUM("getblock", []string{hash})
+		resp, err := Call_QTUM("getblock", []interface{}{hash})
 		if err != nil {
 			noderror.Error(err, c)
 			return
@@ -492,7 +581,7 @@ func getBlockHashByHeight(c *gin.Context) {
 			return
 		}
 
-		resp, err := Call_QTUM("getblockhash", []string{heightInt})
+		resp, err := Call_QTUM("getblockhash", []interface{}{heightInt})
 		if err != nil {
 			noderror.Error(err, c)
 			return
@@ -534,7 +623,7 @@ func getBlockHeight(c *gin.Context) {
 		})
 
 	case global.QTUM:
-		resp, err := Call_QTUM("getblockcount", []string)
+		resp, err := Call_QTUM("getblockcount", []interface{}{})
 		if err != nil {
 			noderror.Error(err, c)
 			return

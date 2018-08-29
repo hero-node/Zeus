@@ -36,6 +36,14 @@ func ApiListenPort() string {
 	return port
 }
 
+func Qtumhost() string {
+	qtumhost, err := config.GetConfigString("qtumhost")
+	if err != nil {
+		log.Fatal(err)
+	}
+	return qtumhost
+}
+
 func QtumUserAndPassword() []string {
 	user, err := config.GetConfigString("qtumuser")
 	password, err := config.GetConfigString("qtumpassword")
