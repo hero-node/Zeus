@@ -41,6 +41,7 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/gasLimit", getEthGasLimit)
 	router.GET("/info", getNodeInfo)
 	// router.GET("/mining/:chain", getMining)
+	router.GET("/filterLogs/:id", getEthFilterLogs)
 
 	router.GET("/block/:chain", getBlockByHeightOrHash)
 	router.GET("/blockHash/:chain/:height", getBlockHashByHeight)
@@ -442,6 +443,21 @@ func getNodeInfo(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"result":  "success",
 		"content": info,
+	})
+}
+
+func getEthFilterLogs(c *gin.Context) {
+	id := c.Param("id")
+	
+	resp, err := Call_ETH("eth_getFilterLogs", []interface{}{id})
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+	
+	c.JSON(200, gin.H{
+		"result": "success",
+		"content": resp.Result
 	})
 }
 
