@@ -1,7 +1,13 @@
 package config
 
 import (
+	"context"
+	"log"
+	"time"
+	"zeus/utils/global"
+
 	"github.com/Mercy-Li/Goconfig/config"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 func GetHttpPort() string {
@@ -43,4 +49,46 @@ func GetQtumUserAndPassowrd() []string {
 		return []string{"123", "123"}
 	}
 	return []string{user, password}
+}
+
+var validedEthHost = ""
+
+func GetValidEthHost() string {
+	var validEthHost string
+	if global.TEST_NET {
+		validEthHost = "http://ropsten.infura.io/mew"
+	} else {
+		validEthHost = "http://infura.io/mew"
+	}
+
+	if validedEthHost == "" {
+		localHost := GetEthHost()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		client, err := ethclient.Dial(localHost)
+		if err != nil {
+			validedEthHost = validEthHost
+			return validedEthHost
+		}
+		block_local, err := client.BlockByNumber(ctx, nil)
+		if err != nil {
+			validedEthHost = validEthHost
+			return validedEthHost
+		}
+
+		client, err = ethclient.Dial(validEthHost)
+		if err != nil {
+			log.Fatal("No valid node available")
+		}
+		block_valid, err := client.BlockByNumber(ctx, nil)
+		if err != nil {
+			log.Fatal("No valid node available")
+		}
+		if int(block_local.NumberU64()-block_valid.NumberU64()) > -5 {
+			validedEthHost = localHost
+			return validedEthHost
+		}
+	}
+
+	return validedEthHost
 }

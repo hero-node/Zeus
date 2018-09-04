@@ -40,6 +40,8 @@ func main() {
 		l.Fatalln("Loadconfig File from %s failed. err=%v", *pconfig, err)
 	}
 
+	go c.GetValidEthHost()
+
 	port := c.GetHttpPort()
 	gin.SetMode(gin.DebugMode)
 	router := gin.Default()
