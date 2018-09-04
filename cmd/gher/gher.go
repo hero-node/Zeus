@@ -5,6 +5,7 @@ import (
 	l "log"
 	"zeus/api/bootstrap"
 	"zeus/api/heronode"
+	c "zeus/utils/config"
 	"zeus/utils/global"
 
 	"github.com/Mercy-Li/Goconfig/config"
@@ -22,8 +23,10 @@ func main() {
 	var psection string
 	if *testnet {
 		psection = "dev"
+		global.TEST_NET = true
 	} else {
 		psection = "pro"
+		global.TEST_NET = false
 	}
 
 	env := map[string]string{
@@ -37,7 +40,7 @@ func main() {
 		l.Fatalln("Loadconfig File from %s failed. err=%v", *pconfig, err)
 	}
 
-	port := global.ApiListenPort()
+	port := c.GetHttpPort()
 	gin.SetMode(gin.DebugMode)
 	router := gin.Default()
 

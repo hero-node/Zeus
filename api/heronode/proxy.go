@@ -7,7 +7,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"zeus/utils/global"
+	"zeus/utils/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +15,7 @@ import (
 func ReverseProxy() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-		target := global.IpfsHost()
+		target := config.GetIpfsHost()
 		targetUrl, err := url.Parse(target)
 		if err != nil {
 			log.Fatal(err)

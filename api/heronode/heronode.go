@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 	"zeus/api/noderror"
+	"zeus/utils/config"
 	"zeus/utils/global"
 
 	"context"
@@ -29,7 +30,7 @@ import (
 var ethHost string
 
 func InitRoute(router *gin.Engine) {
-	ethHost = global.Ethhost()
+	ethHost = config.GetEthHost()
 
 	router.GET("/isHero", isHero)
 	router.GET("/available/:chain", getChainAvailable)
@@ -448,16 +449,16 @@ func getNodeInfo(c *gin.Context) {
 
 func getEthFilterLogs(c *gin.Context) {
 	id := c.Param("id")
-	
+
 	resp, err := Call_ETH("eth_getFilterLogs", []interface{}{id})
 	if err != nil {
 		noderror.Error(err, c)
 		return
 	}
-	
+
 	c.JSON(200, gin.H{
-		"result": "success",
-		"content": resp.Result
+		"result":  "success",
+		"content": resp.Result,
 	})
 }
 
@@ -757,7 +758,7 @@ func getReceiptByHash(c *gin.Context) {
 var max int
 
 func getPeers(c *gin.Context) {
-	localPath := "http://localhost" + global.ApiListenPort() + "/ipfs/swarm/peers"
+	localPath := "http://localhost" + config.GetHttpPort() + "/ipfs/swarm/peers"
 	resp, err := http.Get(localPath)
 	if err != nil {
 		noderror.Error(err, c)

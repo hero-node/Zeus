@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
-	"zeus/utils/global"
+	"zeus/utils/config"
 )
 
 func Call_ETH(host string, method string, params []interface{}) (*ETHResp, error) {
@@ -68,7 +68,7 @@ func Call_QTUM(host string, method string, params []interface{}) (*QTUMResp, err
 	}
 
 	req.Header.Set("content-type", "text/plain")
-	up := global.QtumUserAndPassword()
+	up := config.GetQtumUserAndPassowrd()
 	req.SetBasicAuth(up[0], up[1])
 
 	client := &http.Client{}
