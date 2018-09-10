@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	//	"fmt"
 	"io"
 	"os"
@@ -61,21 +62,21 @@ func main() {
 			PortBindings: nat.PortMap{
 				"8545/udp": []nat.PortBinding{
 					{
-						HostIP:   "0.0.0,0",
+						HostIP:   "0.0.0.0",
 						HostPort: "8545",
 					},
 				},
 				"30303/udp": []nat.PortBinding{
 					{
 						HostIP:   "0.0.0.0",
-						HostPort: "8545",
+						HostPort: "30303",
 					},
 				},
 			},
 		}
 		resp, err := cli.ContainerCreate(ctx, &container.Config{
 			Image: imageName,
-			Cmd:   []string{"--rpc", "rpcaddr 0.0.0.0", "--ws", "--cache 1024", "--rpccorsdomain *"},
+			Cmd:   []string{"--rpc", "--rpcaddr=0.0.0.0", "--ws", "--cache=1024", "--rpccorsdomain=*"},
 			Tty:   true,
 			ExposedPorts: nat.PortSet{
 				"8545/udp":  struct{}{},
@@ -86,20 +87,12 @@ func main() {
 			panic(err)
 		}
 
-		statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-		select {
-		case err := <-errCh:
-			if err != nil {
-				panic(err)
-			}
-		case <-statusCh:
-		}
-
 		out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
 		if err != nil {
 			panic(err)
 		}
 
 		io.Copy(os.Stdout, out)
+		fmt.Println("HeroNode synchroniztion started. \nPlease run \"gher\" to start the api")
 	}
 }

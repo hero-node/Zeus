@@ -1,4 +1,4 @@
-package heronode
+package core
 
 import (
 	"zeus/rpcclient"

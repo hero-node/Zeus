@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	l "log"
+	"fmt"
 	"zeus/api/bootstrap"
-	"zeus/api/heronode"
+	"zeus/api/core"
 	c "zeus/utils/config"
 	"zeus/utils/global"
 
@@ -34,10 +34,10 @@ func main() {
 		"section": psection,
 	}
 
-	config.InitConfigEnv(env)
-	err := config.LoadConfigFile()
+	err := config.InitConfigEnv(env)
+	err = config.LoadConfigFile()
 	if err != nil {
-		l.Fatalln("Loadconfig File from %s failed. err=%v", *pconfig, err)
+		fmt.Println("No config file. Use default parameters.")
 	}
 
 	go c.GetValidEthHost()
@@ -46,7 +46,7 @@ func main() {
 	gin.SetMode(gin.DebugMode)
 	router := gin.Default()
 
-	heronode.InitRoute(router)
+	core.InitRoute(router)
 
 	router.Run(port)
 }
