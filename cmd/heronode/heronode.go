@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	//	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -17,6 +16,12 @@ import (
 const imageName = "ethereum/client-go"
 
 func main() {
+	stop := false
+	if len(os.Args) > 1 {
+		if os.Args[1] == "stop" {
+			stop = true
+		}
+	}
 	ctx := context.Background()
 	cli, err := client.NewClientWithOpts(client.WithVersion("1.38"))
 	if err != nil {
@@ -50,14 +55,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	existed = false
+	containerID := ""
 	for _, c := range containers {
 		if strings.Contains(c.Image, imageName) {
 			existed = true
+			containerID = c.ID
 		}
 	}
-
-	if !existed {
+	if containerID == "" {
 		hostConfig := &container.HostConfig{
 			PortBindings: nat.PortMap{
 				"8545/udp": []nat.PortBinding{
@@ -93,6 +98,11 @@ func main() {
 		}
 
 		io.Copy(os.Stdout, out)
-		fmt.Println("HeroNode synchroniztion started. \nPlease run \"gher\" to start the api")
+		fmt.Println("HeroNode synchroniztion started. \nRun \"heronode stop\" to stop Node\nRun \"gher\" to start the api.")
+	} else if stop {
+		if err := cli.ContainerStop(ctx, containerID, nil); err != nil {
+			panic(err)
+		}
+		fmt.Println("Stop Hero Node success")
 	}
 }
