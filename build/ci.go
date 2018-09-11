@@ -52,7 +52,16 @@ func doInstall() {
 	//	gitCommit := gitcommit()
 	//	gitCommitString := "main.gitCommit=" + gitCommit
 
+	// ================== gher
 	cmd := exec.Command("go", []string{"install", "-v", "./cmd/gher/gher.go"}...)
+	runGoCmd(cmd)
+
+	// =================== heronode
+	cmd = exec.Command("go", []string{"install", "-v", "./cmd/heronode/heronode.go"}...)
+	runGoCmd(cmd)
+}
+
+func runGoCmd(cmd *exec.Cmd) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	for _, e := range os.Environ() {
@@ -69,18 +78,7 @@ func doInstall() {
 
 func getXgo() {
 	cmd := exec.Command("go", []string{"get", "github.com/karalabe/xgo"}...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "GOPATH=") || strings.HasPrefix(e, "GOBIN=") {
-			continue
-		}
-		cmd.Env = append(cmd.Env, e)
-	}
-	cmd.Env = append(cmd.Env, "GOPATH="+goPath())
-	cmd.Env = append(cmd.Env, "GOBIN="+GOBIN)
-
-	cmd.Run()
+	runGoCmd(cmd)
 }
 
 func doXgo(cmdlinne []string) {
@@ -89,19 +87,16 @@ func doXgo(cmdlinne []string) {
 
 	args := append([]string{}, flag.Args()...)
 
+	// ====================== gher
 	path := "./cmd/gher"
 	args = append(args, []string{"--dest", GOBIN, path}...)
 	cmd := exec.Command(filepath.Join(GOBIN, "xgo"), args...)
-	for _, e := range os.Environ() {
-		if strings.HasPrefix(e, "GOPATH=") || strings.HasPrefix(e, "GOBIN=") {
-			continue
-		}
-		cmd.Env = append(cmd.Env, e)
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = append(cmd.Env, "GOPATH="+goPath())
-	cmd.Env = append(cmd.Env, "GOBIN="+GOBIN)
-	fmt.Println(cmd.Args)
-	cmd.Run()
+	runGoCmd(cmd)
+
+	// ====================== heronode
+	path = "./cmd/heronode"
+	args = append([]string{}, flag.Args()...)
+	args = append(args, []string{"--dest", GOBIN, path}...)
+	cmd = exec.Command(filepath.Join(GOBIN, "xgo"), args...)
+	runGoCmd(cmd)
 }
