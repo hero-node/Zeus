@@ -7,6 +7,7 @@ hero:
 	go run build/ci.go install
 	@echo "Compilation done"
 	echo "Run \"$(GOBIN)/gher\" to launch gher."
+	echo "Run \"$(GOBIN)/heronode\" to launch heronode"
 	
 hero-linux-amd64:
 	go run build/ci.go xgo -- --go=$(GO) --targets=linux/amd64 -v

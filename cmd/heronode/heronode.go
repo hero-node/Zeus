@@ -83,105 +83,121 @@ func main() {
 			ipfs_containerID = c.ID
 		}
 	}
-	if eth_containerID == "" {
-		hostConfig := &container.HostConfig{
-			PortBindings: nat.PortMap{
-				"8545/tcp": []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "8545",
+	if !stop {
+		if eth_containerID == "" {
+			hostConfig := &container.HostConfig{
+				PortBindings: nat.PortMap{
+					"8545/tcp": []nat.PortBinding{
+						{
+							HostIP:   "0.0.0.0",
+							HostPort: "8545",
+						},
+					},
+					"30303/tcp": []nat.PortBinding{
+						{
+							HostIP:   "0.0.0.0",
+							HostPort: "30303",
+						},
 					},
 				},
-				"30303/tcp": []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "30303",
+			}
+			resp, err := cli.ContainerCreate(ctx, &container.Config{
+				Image: eth_imageName,
+				Cmd:   []string{"--rpc", "--rpcaddr=0.0.0.0", "--ws", "--cache=1024", "--rpccorsdomain=*"},
+				Tty:   true,
+				ExposedPorts: nat.PortSet{
+					"8545/tcp":  struct{}{},
+					"30303/tcp": struct{}{},
+				},
+			}, hostConfig, nil, "")
+			if err != nil {
+				panic(err)
+			}
+
+			if err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+				panic(err)
+			}
+
+			out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+			if err != nil {
+				panic(err)
+			}
+
+			io.Copy(os.Stdout, out)
+			fmt.Println("----------- Eth node started ------------")
+		}
+
+		if ipfs_containerID == "" {
+			homeDir, err := homedir.Dir()
+			if err != nil {
+				panic(err)
+			}
+
+			ipfsPath := filepath.Join(homeDir, "ipfs")
+			stagePath := filepath.Join(ipfsPath, "staging")
+			dataPath := filepath.Join(ipfsPath, "data")
+
+			hostConfig := &container.HostConfig{
+				PortBindings: nat.PortMap{
+					"8080/tcp": []nat.PortBinding{
+						{
+							HostIP:   "0.0.0.0",
+							HostPort: "8080",
+						},
+					},
+					"4001/tcp": []nat.PortBinding{
+						{
+							HostIP:   "0.0.0.0",
+							HostPort: "4001",
+						},
+					},
+					"5001/tcp": []nat.PortBinding{
+						{
+							HostIP:   "0.0.0.0",
+							HostPort: "5001",
+						},
 					},
 				},
-			},
-		}
-		resp, err := cli.ContainerCreate(ctx, &container.Config{
-			Image: eth_imageName,
-			Cmd:   []string{"--rpc", "--rpcaddr=0.0.0.0", "--ws", "--cache=1024", "--rpccorsdomain=*"},
-			Tty:   true,
-			ExposedPorts: nat.PortSet{
-				"8545/tcp":  struct{}{},
-				"30303/tcp": struct{}{},
-			},
-		}, hostConfig, nil, "")
-		if err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-			panic(err)
-		}
+				Binds: []string{stagePath + ":/export", dataPath + ":/data/ipfs"},
+			}
+			resp, err := cli.ContainerCreate(ctx, &container.Config{
+				Image: ipfs_imageName,
+				Tty:   true,
+				ExposedPorts: nat.PortSet{
+					"8080/tcp": struct{}{},
+					"4001/tcp": struct{}{},
+					"5001/tcp": struct{}{},
+				},
+			}, hostConfig, nil, "")
+			if err != nil {
+				panic(err)
+			}
 
-		out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-		if err != nil {
-			panic(err)
-		}
+			if err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+				panic(err)
+			}
 
-		io.Copy(os.Stdout, out)
-		fmt.Println("----------- Eth node started ------------")
+			out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
+			if err != nil {
+				panic(err)
+			}
+
+			io.Copy(os.Stdout, out)
+
+			fmt.Println("----------- Ipfs node started ------------")
+		}
 	}
 
-	if ipfs_containerID == "" {
-		homeDir, err := homedir.Dir()
-		if err != nil {
-			panic(err)
+	if stop {
+		if eth_containerID != "" {
+			if err := cli.ContainerStop(ctx, eth_containerID, nil); err != nil {
+				panic(err)
+			}
 		}
-
-		ipfsPath := filepath.Join(homeDir, "ipfs")
-		stagePath := filepath.Join(ipfsPath, "staging")
-		dataPath := filepath.Join(ipfsPath, "data")
-
-		hostConfig := &container.HostConfig{
-			PortBindings: nat.PortMap{
-				"8080/tcp": []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "8080",
-					},
-				},
-				"4001/tcp": []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "4001",
-					},
-				},
-				"5001/tcp": []nat.PortBinding{
-					{
-						HostIP:   "0.0.0.0",
-						HostPort: "5001",
-					},
-				},
-			},
-			Binds: []string{stagePath + ":/export", dataPath + ":/data/ipfs"},
-		}
-		resp, err := cli.ContainerCreate(ctx, &container.Config{
-			Image: ipfs_imageName,
-			Tty:   true,
-			ExposedPorts: nat.PortSet{
-				"8080/tcp": struct{}{},
-				"4001/tcp": struct{}{},
-				"5001/tcp": struct{}{},
-			},
-		}, hostConfig, nil, "")
-		if err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-			panic(err)
-		}
-		out, err := cli.ContainerLogs(ctx, resp.ID, types.ContainerLogsOptions{ShowStdout: true})
-		if err != nil {
-			panic(err)
-		}
-
-		io.Copy(os.Stdout, out)
-		fmt.Println("----------- Ipfs node started ------------")
-	}
-
-	if stop && eth_containerID != "" && ipfs_containerID != "" {
-		if err := cli.ContainerStop(ctx, eth_containerID, nil); err != nil {
-			panic(err)
-		}
-		if err = cli.ContainerStop(ctx, ipfs_containerID, nil); err != nil {
-			panic(err)
+		if ipfs_containerID != "" {
+			if err = cli.ContainerStop(ctx, ipfs_containerID, nil); err != nil {
+				panic(err)
+			}
 		}
 		fmt.Println("Stop Hero Node success")
 	}
