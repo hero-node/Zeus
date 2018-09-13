@@ -113,7 +113,7 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
-
+			fmt.Println("ethID:", resp.ID)
 			if err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 				panic(err)
 			}
@@ -169,6 +169,7 @@ func main() {
 					"5001/tcp": struct{}{},
 				},
 			}, hostConfig, nil, "")
+			fmt.Println("ipfsID:", resp.ID)
 			if err != nil {
 				panic(err)
 			}

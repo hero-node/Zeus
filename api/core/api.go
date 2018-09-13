@@ -30,7 +30,7 @@ import (
 var ethHost string
 
 func InitRoute(router *gin.Engine) {
-	ethHost = config.GetEthHost()
+	ethHost = config.GetValidEthHost()
 
 	router.GET("/isHero", isHero)
 	router.GET("/available/:chain", getChainAvailable)

@@ -56,9 +56,9 @@ var validedEthHost = ""
 func GetValidEthHost() string {
 	var validEthHost string
 	if global.TEST_NET {
-		validEthHost = "http://ropsten.infura.io/mew"
+		validEthHost = "https://ropsten.infura.io/v3/719be1b239a24d1e87a2e326be6c4384"
 	} else {
-		validEthHost = "http://infura.io/mew"
+		validEthHost = "https://mainnet.infura.io/v3/719be1b239a24d1e87a2e326be6c4384"
 	}
 
 	if validedEthHost == "" {
