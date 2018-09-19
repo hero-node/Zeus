@@ -54,6 +54,9 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/transactionReceipt/:chain/:hash", getReceiptByHash)
 	router.GET("/peers", getPeers)
 
+	// ens
+	router.GET("/ens/:ensname", ensParse)
+
 	// ipfs
 	router.POST("/ipfs/add", ReverseProxy())
 	router.GET("/ipfs/bitswap/ledger", ReverseProxy())
@@ -877,4 +880,8 @@ func getPeers(c *gin.Context) {
 		})
 	}
 
+}
+
+func ensParse(c *gin.Context) {
+	
 }
