@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	//	"log"
@@ -11,13 +12,20 @@ import (
 	"github.com/ethereum/go-ethereum/contracts/ens/contract"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/multiformats/go-multihash"
 )
 
 func main() {
-
-	// 6241b7c237fe1fefa89b9e99580159de2621ee4a679d27afbb6289fcd74f09d1
-	//	key, _ := crypto.HexToECDSA("6241b7c237fe1fefa89b9e99580159de2621ee4a679d27afbb6289fcd74f09d1")
-
+	hexstr := "0x49ae177d1db061d36a9eb4fb132c6e63adc8ab3ee64927387b155d039b953552"[2:]
+	buf, _ := hex.DecodeString(hexstr)
+	fmt.Println(buf)
+	/*mHashBuf, err := multihash.EncodeName(buf, "SHA2-256")
+	if err != nil {
+		log.Fatalln(err)
+	}*/
+	mh := multihash.Multihash(buf)
+	fmt.Println(mh.B58String())
+	return
 	conn, err := ethclient.Dial("https://mainnet.infura.io/v3/719be1b239a24d1e87a2e326be6c4384")
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)

@@ -52,6 +52,7 @@ func GetQtumUserAndPassowrd() []string {
 }
 
 var validedEthHost = ""
+var lastTime time.Time
 
 func GetValidEthHost() string {
 	var validEthHost string
@@ -61,7 +62,9 @@ func GetValidEthHost() string {
 		validEthHost = "https://mainnet.infura.io/v3/719be1b239a24d1e87a2e326be6c4384"
 	}
 
-	if validedEthHost == "" {
+	duration := time.Since(lastTime).Hours()
+	if validedEthHost == "" || duration > 1 {
+		lastTime = time.Now()
 		localHost := GetEthHost()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
