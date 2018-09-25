@@ -21,6 +21,7 @@ import (
 
 	"zeus/api/bootstrap"
 	"zeus/api/utils"
+	"zeus/nameservice/ens"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -56,6 +57,7 @@ func InitRoute(router *gin.Engine) {
 
 	// ens
 	router.GET("/ens/:ensname", ensParse)
+	router.GET("/encode/:content", ensRgister)
 
 	// ipfs
 	router.POST("/ipfs/add", ReverseProxy())
@@ -883,5 +885,28 @@ func getPeers(c *gin.Context) {
 }
 
 func ensParse(c *gin.Context) {
-	
+	ensName := c.Param("ensname")
+	ipfsHash, err := ens.IpfsDecode(ensName)
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"result":  "success",
+		"content": ipfsHash,
+	})
+}
+
+func ensRgister(c *gin.Context) {
+	ipfsHash := c.Param("content")
+	ensHash, err := ens.IpfsEncode(ipfsHash)
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+	c.JSON(200, gin.H{
+		"result":  "success",
+		"content": ensHash,
+	})
 }

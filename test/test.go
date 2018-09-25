@@ -16,9 +16,9 @@ import (
 )
 
 func main() {
-	hexstr := "0x49ae177d1db061d36a9eb4fb132c6e63adc8ab3ee64927387b155d039b953552"[2:]
+	hexstr := "122059948439065f29619ef41280cbb932be52c56d99c5966b65e0111239f098bbef"
+
 	buf, _ := hex.DecodeString(hexstr)
-	fmt.Println(buf)
 	/*mHashBuf, err := multihash.EncodeName(buf, "SHA2-256")
 	if err != nil {
 		log.Fatalln(err)
@@ -33,15 +33,6 @@ func main() {
 
 	//	auth := bind.NewKeyedTransactor(key)
 	addr := common.HexToAddress("0x314159265dD8dbb310642f98f50C066173C1259b")
-	//	ens, err := ens.NewENS(transactOpt, addr, conn)
-	//	if err != nil {
-	//		log.Fatalf("Failed to instantiate a Token contract: %v, %v", err, addr)
-	//	}
-	//	hash, err := ens.Resolve("heronode")
-	//	if err != nil {
-	//		log.Fatalf("Failed to resolve: %v", err)
-	//	}
-	//	fmt.Println(" ico hash:", hash.Hex())
 
 	namehash := ensNode("heronode.eth")
 
