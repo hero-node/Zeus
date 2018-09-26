@@ -103,7 +103,7 @@ func main() {
 			}
 			resp, err := cli.ContainerCreate(ctx, &container.Config{
 				Image: eth_imageName,
-				Cmd:   []string{"--rpc", "--rpcaddr=0.0.0.0", "--ws", "--cache=1024", "--rpccorsdomain=*"},
+				Cmd:   []string{"--rpc", "--rpcaddr=0.0.0.0", "--ws", "--rpccorsdomain=*"},
 				Tty:   true,
 				ExposedPorts: nat.PortSet{
 					"8545/tcp":  struct{}{},
