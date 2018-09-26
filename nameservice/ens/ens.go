@@ -75,20 +75,31 @@ func EnsToAddr(name string) string {
 }
 
 // ======================== ipfs part ==============================
-//func EnsToIpfs(name string) string {
-//	ens, _, err := ensConteact()
-//	if err != nil {
-//		log.Printf("Get Ens contract failed: %v", err)
-//		return ""
-//	}
-//	namehash := ensNode(name)
-//	resolverAddr, err := ens.Resolver(nil, namehash)
-//	if err != nil {
-//		log.Printf("Get resolver failed: %v", err)
-//		return ""
-//	}
-//	addr, err := resolverContract.Content(nil, namehash)
-//}
+func EnsToContent(name string) string {
+	ens, conn, err := ensContract()
+	if err != nil {
+		log.Printf("Get Ens contract failed: %v", err)
+		return ""
+	}
+	namehash := ensNode(name)
+	resolverAddr, err := ens.Resolver(nil, namehash)
+	if err != nil {
+		log.Printf("Get resolver failed: %v", err)
+		return ""
+	}
+	resolverContract, err := contract.NewPublicResolver(resolverAddr, conn)
+	if err != nil {
+		log.Printf("Get resolver contract failed: %v", err)
+		return ""
+	}
+
+	content, err := resolverContract.Content(nil, namehash)
+	if err != nil {
+		log.Printf("Get resolver content failed: %v", err)
+		return ""
+	}
+	return string(content[:])
+}
 
 func IpfsEncode(ipfs string) (string, error) {
 	multi, err := multihash.FromB58String(ipfs)

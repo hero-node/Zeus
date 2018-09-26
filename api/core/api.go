@@ -57,7 +57,7 @@ func InitRoute(router *gin.Engine) {
 
 	// ens
 	router.GET("/ens/:ensname", ensParse)
-	router.GET("/encode/:content", ensRgister)
+	router.GET("/ensEncode/:content", ensEncode)
 
 	// ipfs
 	router.POST("/ipfs/add", ReverseProxy())
@@ -881,24 +881,26 @@ func getPeers(c *gin.Context) {
 			"reason": "Timeout",
 		})
 	}
-
 }
 
 func ensParse(c *gin.Context) {
+	// 1.find mapping content
+	// 2.decode to ipfs hash
+	// 3.redirect to ipfs resource url
 	ensName := c.Param("ensname")
-	ipfsHash, err := ens.IpfsDecode(ensName)
+	content := ens.EnsToContent(ensName)
+	ipfsHash, err := ens.IpfsDecode(content)
 	if err != nil {
 		noderror.Error(err, c)
 		return
 	}
 
-	c.JSON(200, gin.H{
-		"result":  "success",
-		"content": ipfsHash,
-	})
+	dest := "https://ipfs.io/ipfs/" + ipfsHash
+
+	c.Redirect(http.StatusMovedPermanently, dest)
 }
 
-func ensRgister(c *gin.Context) {
+func ensEncode(c *gin.Context) {
 	ipfsHash := c.Param("content")
 	ensHash, err := ens.IpfsEncode(ipfsHash)
 	if err != nil {
