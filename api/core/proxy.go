@@ -40,3 +40,9 @@ func ReverseProxy() gin.HandlerFunc {
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}
 }
+
+func ReverseProxyAdd() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+	}
+}

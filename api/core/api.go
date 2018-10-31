@@ -60,7 +60,7 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/ensEncode/:content", ensEncode)
 
 	// ipfs
-	router.POST("/ipfs/add", ReverseProxy())
+	router.POST("/ipfs/add", IpfsAddFilter(), ReverseProxy())
 	router.GET("/ipfs/bitswap/ledger", ReverseProxy())
 	router.GET("/ipfs/bitswap/reprovide", ReverseProxy())
 	router.GET("/ipfs/bitswap/stat", ReverseProxy())
