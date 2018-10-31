@@ -26,6 +26,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gin-gonic/gin"
+
+	shell "github.com/ipfs/go-ipfs-api"
+
 )
 
 var ethHost string
@@ -60,6 +63,7 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/ensEncode/:content", ensEncode)
 
 	// ipfs
+	router.GET("/ipfs/add/:string", ipfsAdd)
 	router.POST("/ipfs/add", IpfsAddFilter(), ReverseProxy())
 	router.GET("/ipfs/bitswap/ledger", ReverseProxy())
 	router.GET("/ipfs/bitswap/reprovide", ReverseProxy())
@@ -881,6 +885,20 @@ func getPeers(c *gin.Context) {
 			"reason": "Timeout",
 		})
 	}
+}
+
+func ipfsAdd(c *gin.Context) {
+	str := c.Param("string")
+	sh := shell.NewShell("localhost:5001")
+	cid, err := sh.Add(strings.NewReader(str))
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+	c.JSON(200, gin.H{
+		"result": "success",
+		"content": cid,
+	})
 }
 
 func ensParse(c *gin.Context) {
