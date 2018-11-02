@@ -30,12 +30,16 @@ func ReverseProxy() gin.HandlerFunc {
 		}
 
 		director := func(req *http.Request) {
+			fmt.Println(req.URL)
+			// r := c.Request
+			// req = r
 			req.URL.Scheme = "http"
 			req.URL.Host = targetHost
 			req.URL.Path = path
-			fmt.Println(req.URL)
+			// fmt.Println(req.Header)
+			delete(req.Header, "Access-Control-Allow-Origin")
 		}
-
+		delete(c.Writer.Header(), "Access-Control-Allow-Origin")
 		proxy := &httputil.ReverseProxy{Director: director}
 		proxy.ServeHTTP(c.Writer, c.Request)
 	}

@@ -10,7 +10,7 @@ import (
 
 	"github.com/Mercy-Li/Goconfig/config"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-contrib/cors"
+	// "github.com/gin-contrib/cors"
 )
 
 func main() {
@@ -46,9 +46,6 @@ func main() {
 	port := c.GetHttpPort()
 	gin.SetMode(gin.DebugMode)
 	router := gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	router.Use(cors.New(config))
 	core.InitRoute(router)
 
 	router.Run(port)

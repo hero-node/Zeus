@@ -28,13 +28,18 @@ import (
 	"github.com/gin-gonic/gin"
 
 	shell "github.com/ipfs/go-ipfs-api"
-
+	"github.com/gin-contrib/cors"
+	"fmt"
 )
 
 var ethHost string
 
 func InitRoute(router *gin.Engine) {
 	ethHost = config.GetValidEthHost()
+
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	router.Use(cors.New(config))
 
 	router.GET("/isHero", isHero)
 	router.GET("/available/:chain", getChainAvailable)
@@ -63,8 +68,9 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/ensEncode/:content", ensEncode)
 
 	// ipfs
-	router.POST("/ipfs/add2", ipfsAdd)
-	router.POST("/ipfs/add", IpfsAddFilter(), ReverseProxy())
+	router.POST("/ipfs/add",IpfsAddFilter(), ipfsAdd)
+	router.POST("/ipfs/addfile",IpfsAddFilter(), ipfsAddFile)
+	router.GET("/ipfs/cat/:id", ipfsCat)
 	router.GET("/ipfs/bitswap/ledger", ReverseProxy())
 	router.GET("/ipfs/bitswap/reprovide", ReverseProxy())
 	router.GET("/ipfs/bitswap/stat", ReverseProxy())
@@ -77,7 +83,8 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/ipfs/bootstrap/add/default", ReverseProxy())
 	router.GET("/ipfs/bootstrap/list", ReverseProxy())
 	router.GET("/ipfs/bootstrap/rm/all", ReverseProxy())
-	router.GET("/ipfs/cat", ReverseProxy())
+	// router.GET("/ipfs/cat", ReverseProxy())
+	
 	router.GET("/ipfs/commands", ReverseProxy())
 	router.GET("/ipfs/config/edit", ReverseProxy())
 	router.GET("/ipfs/config/replace", ReverseProxy())
@@ -171,6 +178,28 @@ func InitRoute(router *gin.Engine) {
 	router.GET("/ipfs/update", ReverseProxy())
 	router.GET("/ipfs/version", ReverseProxy())
 
+}
+
+func ipfsCat(c *gin.Context) {
+	id := c.Param("id")
+	fmt.Println(id)
+	sh := shell.NewShell("localhost:5001")
+	r, err := sh.Cat(id)
+	defer r.Close()
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+	content, err := ioutil.ReadAll(r)
+	if err != nil{
+		noderror.Error(err, c)
+		return
+	}
+
+	c.JSON(200, gin.H{
+		"result": "success",
+		"content": string(content),
+	})
 }
 
 func isHero(c *gin.Context) {
@@ -889,8 +918,36 @@ func getPeers(c *gin.Context) {
 
 func ipfsAdd(c *gin.Context) {
 	str := c.PostForm("content")
+	fmt.Println(str)
 	sh := shell.NewShell("localhost:5001")
 	cid, err := sh.Add(strings.NewReader(str))
+	fmt.Println(cid)
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+	c.JSON(200, gin.H{
+		"result": "success",
+		"content": cid,
+	})
+}
+
+func ipfsAddFile(c *gin.Context) {
+	file, err := c.FormFile("upload")
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+
+	content, err := file.Open()
+	if err != nil {
+		noderror.Error(err, c)
+		return
+	}
+
+	sh := shell.NewShell("localhost:5001")
+	cid, err := sh.Add(content)
+	fmt.Println(cid)
 	if err != nil {
 		noderror.Error(err, c)
 		return
