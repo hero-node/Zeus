@@ -69,22 +69,24 @@ func main() {
 		io.Copy(os.Stdout, reader)
 	}
 
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{})
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{All:true})
 	if err != nil {
 		panic(err)
 	}
-	eth_containerID := ""
-	ipfs_containerID := ""
+	eth_container := types.Container{ID:"empty"}
+	ipfs_container := types.Container{ID:"empty"}
 	for _, c := range containers {
 		if strings.Contains(c.Image, eth_imageName) {
-			eth_containerID = c.ID
+			eth_container = c
+			continue
 		}
 		if strings.Contains(c.Image, ipfs_imageName) {
-			ipfs_containerID = c.ID
+			ipfs_container = c
+			continue
 		}
 	}
 	if !stop {
-		if eth_containerID == "" {
+		if eth_container.ID == "empty" {
 			hostConfig := &container.HostConfig{
 				PortBindings: nat.PortMap{
 					"8545/tcp": []nat.PortBinding{
@@ -125,9 +127,17 @@ func main() {
 
 			io.Copy(os.Stdout, out)
 			fmt.Println("----------- Eth node started ------------")
+		} else {
+			if strings.Contains(eth_container.Status, "Exited") {
+				if err := cli.ContainerStart(ctx, eth_container.ID, types.ContainerStartOptions{}); err != nil {
+					panic(err)
+				}
+				fmt.Println("ethID:", eth_container.ID)
+				fmt.Println("----------- Eth node started ------------")
+			}
 		}
 
-		if ipfs_containerID == "" {
+		if ipfs_container.ID == "empty" {
 			homeDir, err := homedir.Dir()
 			if err != nil {
 				panic(err)
@@ -186,17 +196,25 @@ func main() {
 			io.Copy(os.Stdout, out)
 
 			fmt.Println("----------- Ipfs node started ------------")
+		} else {
+			if strings.Contains(ipfs_container.Status, "Exited") {
+				if err := cli.ContainerStart(ctx, ipfs_container.ID, types.ContainerStartOptions{}); err != nil {
+					panic(err)
+				}
+				fmt.Println("ipfsID:", ipfs_container.ID)
+				fmt.Println("----------- Ipfs node started ------------")
+			}
 		}
 	}
 
 	if stop {
-		if eth_containerID != "" {
-			if err := cli.ContainerStop(ctx, eth_containerID, nil); err != nil {
+		if eth_container.ID != "empty" {
+			if err := cli.ContainerStop(ctx, eth_container.ID, nil); err != nil {
 				panic(err)
 			}
 		}
-		if ipfs_containerID != "" {
-			if err = cli.ContainerStop(ctx, ipfs_containerID, nil); err != nil {
+		if ipfs_container.ID != "empty" {
+			if err = cli.ContainerStop(ctx, ipfs_container.ID, nil); err != nil {
 				panic(err)
 			}
 		}
