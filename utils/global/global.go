@@ -7,3 +7,4 @@ const (
 )
 
 var TEST_NET = true
+var VERSION = "Gher/v0.0.1-debug"

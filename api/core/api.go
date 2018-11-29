@@ -478,7 +478,7 @@ func getEthGasPrice(c *gin.Context) {
 }
 
 func getNodeInfo(c *gin.Context) {
-	info := "HN-v0.0.1-debug/" + runtime.GOOS + "-" + runtime.GOARCH + "/" + runtime.Version()
+	info := global.VERSION + "/" + runtime.GOOS + "-" + runtime.GOARCH + "/" + runtime.Version()
 	c.JSON(200, gin.H{
 		"result":  "success",
 		"content": info,
