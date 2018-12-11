@@ -8,17 +8,22 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
+	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"net/http"
 
 	//"net/http"
 	"net/url"
+	"errors"
+	crand "crypto/rand"
 )
 
 type Friend struct {
 	address common.Address
 	symID string
+	pub *ecdsa.PublicKey
 }
 
 func newFriend(address string) *Friend {
@@ -33,14 +38,18 @@ type SubscribeParam struct {
 }
 
 type ReceiveMessage struct {
-	Payload string `json:"payload"`
+	Payload []byte `json:"payload"`
 	From string `json:"from"`
+	Encrypted bool `json:"encrypted"`
+	Pub []byte `json:"pub"`
 }
 
 type NewMessage struct {
 	From string `json:"from"`
 	To string `json:"to"`
-	Payload string `json:"payload"`
+	Payload []byte `json:"payload"`   // encrypted or unencrypted message
+	Encrypted bool `json:"encrypted"`
+	Pub []byte `json:"pub""`
 }
 
 var privateKey *ecdsa.PrivateKey
@@ -118,7 +127,18 @@ func main() {
 		var mess ReceiveMessage
 		if err = json.Unmarshal(message, &mess); err == nil {
 			if mess.From != address.String() {
-				fmt.Printf("[%s]%s\n", mess.From, string(mess.Payload))
+				for _, f := range friends {
+					if f.address.String() == mess.From {
+						f.pub, _ = crypto.UnmarshalPubkey(mess.Pub)
+					}
+				}
+				if mess.Encrypted {
+					fmt.Printf("解密前[%s]%s\n", mess.From[:6], string(mess.Payload))
+					payload, _ := decrypt(mess.Payload, privateKey)
+					fmt.Printf("解密后[%s]%s\n", mess.From[:6], string(payload))
+				} else {
+					fmt.Printf("未加密[%s]%s\n", mess.From[:6], string(mess.Payload))
+				}
 			}
 		}
 	}
@@ -146,32 +166,26 @@ func showSession(f *Friend)  {
 	}
 }
 
-//func handleFriend(f *Friend)  {
-//	httpUrl := url.URL{Scheme:"http", Host:addr, Path:"symKeyFromPassword/"+ generatePassword(address.String(), f.address.String())}
-//	resp, err := http.Get(httpUrl.String())
-//	fmt.Println(httpUrl)
-//	defer resp.Body.Close()
-//	body, err := ioutil.ReadAll(resp.Body)
-//	if err != nil {
-//		panic(err)
-//	}
-//	var result map[string]interface{}
-//	err = json.Unmarshal(body, &result)
-//	if err != nil {
-//		panic(err)
-//	}
-//
-//	symKeyID := result["content"].(string)
-//	f.symID = symKeyID
-//}
-
 func sendMessage(f *Friend, message string) {
 	httpUrl := url.URL{Scheme:"http", Host:addr, Path:"post"}
+	fmt.Println("send: " + message)
+	payload := []byte(message)
+	if f.pub != nil {
+		// encrypted
+		ct, err := encrypt([]byte(message), f.pub)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		payload = ct
+	}
 
 	m := NewMessage{
 		From: address.String(),
 		To: f.address.String(),
-		Payload: message,
+		Payload: payload,
+		Encrypted: f.pub != nil,
+		Pub: crypto.FromECDSAPub(&privateKey.PublicKey),
 	}
 	j, _ := json.Marshal(m)
 	resp, err := http.Post(httpUrl.String(), "application/json", bytes.NewBuffer(j))
@@ -192,3 +206,13 @@ func sendMessage(f *Friend, message string) {
 	}
 }
 
+func encrypt(data []byte, pub *ecdsa.PublicKey) ([]byte, error)  {
+	if !whisperv6.ValidatePublicKey(pub) {
+		return []byte{}, errors.New("invalid public key provided for asymmetric encryption")
+	}
+	return ecies.Encrypt(crand.Reader, ecies.ImportECDSAPublic(pub), data, nil, nil)
+}
+
+func decrypt(ct []byte, key *ecdsa.PrivateKey) ([]byte, error)  {
+	return ecies.ImportECDSA(key).Decrypt(ct, nil, nil)
+}

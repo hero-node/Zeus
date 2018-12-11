@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	crand "crypto/rand"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/ethereum/go-ethereum/whisper/shhclient"
 	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/gin-gonic/gin"
@@ -18,8 +22,11 @@ var shh *shhclient.Client
 type NewMessage struct {
 	From string `json:"from"`
 	To string `json:"to"`
-	Payload string `json:"payload"`
+	Payload []byte `json:"payload"`   // encrypted or unencrypted message
+	Encrypted bool `json:"encrypted"`
+	Pub []byte `json:"pub""`
 }
+
 
 func (message NewMessage)ToWhisperType() (whisperv6.NewMessage, error)  {
 	var wMessage = whisperv6.NewMessage{}
@@ -28,11 +35,23 @@ func (message NewMessage)ToWhisperType() (whisperv6.NewMessage, error)  {
 	if err != nil {
 		return wMessage, err
 	}
-	payload := "["+ message.From + "]" + message.Payload
+
+	var flagByte byte = 0x0
+	if message.Encrypted {
+		flagByte = 0x1
+	}
+	fromBytes := []byte(message.From)
+
+	payload := make([]byte, 0)
+	payload = append(payload, flagByte)
+	payload = append(payload, fromBytes...)
+	payload = append(payload, message.Pub...)
+	payload = append(payload, message.Payload...)
+
 	wMessage = whisperv6.NewMessage{
 		SymKeyID: symID,
 		Topic: whisperv6.BytesToTopic([]byte{0x11, 0x22, 0x33, 0x44}),
-		Payload: []byte(payload),
+		Payload: payload,
 		PowTime: 3,
 		PowTarget: 0.5,
 	}
@@ -40,16 +59,30 @@ func (message NewMessage)ToWhisperType() (whisperv6.NewMessage, error)  {
 }
 
 type ReceiveMessage struct {
-	Payload string `json:"payload"`
+	Payload []byte `json:"payload"`
 	From string `json:"from"`
+	Encrypted bool `json:"encrypted"`
+	Pub []byte `json:"pub"`
 }
 
 func NewReceiveMessageFromWhisper(message whisperv6.Message) (ReceiveMessage)  {
-	payload := string(message.Payload)
-	fmt.Println(payload)
+	payload := message.Payload
+	fmt.Println("payload len ", len(message.Payload))
+	encryptedBytes := payload[0]
+	fromBytes := payload[1:43]
+	pubBytes := payload[43:108]
+	contentBytes := payload[108:]
+	var b = false
+	if encryptedBytes == 0x1 {
+		b = true
+	}
+
+	fmt.Println("Rece From: ", string(fromBytes))
 	return ReceiveMessage {
-		Payload: payload[45:],
-		From: payload[1:43],
+		Payload: contentBytes,
+		From: string(fromBytes),
+		Encrypted: b,
+		Pub: pubBytes,
 	}
 
 }
@@ -125,6 +158,7 @@ func main()  {
 
 	r.POST("/post", func(c *gin.Context) { // content-type must application/json
 		var message NewMessage
+
 		if err := c.BindJSON(&message); err != nil {
 			c.JSON(500, gin.H{
 				"result": "error",
@@ -132,6 +166,7 @@ func main()  {
 			})
 			return
 		}
+
 
 		wMessage, err := message.ToWhisperType()
 		if err != nil {
@@ -218,4 +253,11 @@ func main()  {
 
 	r.Run(*port)
 
+}
+
+func encrypt(data []byte, pub *ecdsa.PublicKey) ([]byte, error)  {
+	if !whisperv6.ValidatePublicKey(pub) {
+		return []byte{}, errors.New("invalid public key provided for asymmetric encryption")
+	}
+	return ecies.Encrypt(crand.Reader, ecies.ImportECDSAPublic(pub), data, nil, nil)
 }
