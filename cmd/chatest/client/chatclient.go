@@ -65,11 +65,11 @@ const powTime = 3
 func main() {
 	clientType := flag.Int("client", 0, "1 or 2 or 3")
 	flag.Parse()
-	fmt.Println("输入想要连接的Hero Node节点, 默认127.0.0.1:9000")
+	fmt.Println("输入想要连接的Hero Node节点, 默认129.204.46.168:9000")
 
 	fmt.Scanf("%s", &addr)
 	if addr == "" {
-		addr = "127.0.0.1:9000"
+		addr = "129.204.46.168:9000"
 	}
 	if *clientType == 0 {
 		// 0x164732Dc9261b06B2C3bc700f1C534C999088585

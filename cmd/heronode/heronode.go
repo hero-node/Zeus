@@ -172,6 +172,7 @@ func main() {
 			}
 			resp, err := cli.ContainerCreate(ctx, &container.Config{
 				Image: ipfs_imageName,
+				Cmd: []string{"daemon", "--enable-pubsub-experiment"},
 				Tty:   true,
 				ExposedPorts: nat.PortSet{
 					"8080/tcp": struct{}{},

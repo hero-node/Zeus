@@ -158,16 +158,15 @@ func main()  {
 
 	r.POST("/post", func(c *gin.Context) { // content-type must application/json
 		var message NewMessage
-
 		if err := c.BindJSON(&message); err != nil {
+			fmt.Println(err.Error())
 			c.JSON(500, gin.H{
 				"result": "error",
 				"reason": err.Error(),
 			})
 			return
 		}
-
-
+		fmt.Println(string(message.Payload))
 		wMessage, err := message.ToWhisperType()
 		if err != nil {
 			c.JSON(500, gin.H{
@@ -212,6 +211,7 @@ func main()  {
 			// read
 			for {
 				_, message, err := conn.ReadMessage()
+				fmt.Println("Subscrib: " + string(message))
 				if err != nil {
 					conn.SetWriteDeadline(time.Now().Add(time.Second*10))
 					conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
@@ -223,6 +223,7 @@ func main()  {
 					ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 					defer cancel()
 					crit := subscribeParam.ToWhisperType()
+					fmt.Println(subscribeParam)
 					shh.SubscribeMessages(ctx, crit, mess)
 					fmt.Println("订阅 ", crit.SymKeyID)
 				}
