@@ -1,5 +1,5 @@
 # Zeus
-### Decentralized cross platform app using Ethereum and the ipfs network
+### Decentralized cross-platform app using the Ethereum and IPFS network
 
 
 # Why?
